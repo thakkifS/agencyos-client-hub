@@ -38,3 +38,7 @@ No approved object-storage provider existed in this repo. `LocalAssetStorageServ
 ## Next phase
 
 Replace the dev actor and local storage adapter with shared Agency OS JWT/RBAC and an approved production file store/retention design. Continue to avoid quotations, invoicing or delivery modules in this project phase.
+
+## Final QA and handover
+
+`REQUIREMENTS_TRACEABILITY.md` maps the two Neirah Tech specifications to implementation, test evidence and limits. `INTERVIEW_PREPARATION.md` describes only behavior present in code. Development demonstration rows are created by `backend/prisma/demo-seed.ts`; fixed IDs and empty update branches make it repeatable without overwriting existing records. API e2e tests use run-local UUID fixtures and remove only those exact fixture IDs.

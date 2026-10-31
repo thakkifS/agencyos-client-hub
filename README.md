@@ -35,9 +35,10 @@ The development-only actor seed requires local `DATABASE_URL`, `ENABLE_DEV_AUTH=
 
 ```sh
 npm run prisma:seed:dev
+npm run prisma:seed:demo
 ```
 
-It creates/upserts only a named development agency, a local admin role with client, requirement, communication and file permissions, and the configured local user. Do not enable this adapter in production. Production identity/JWT is not implemented.
+The first command creates/upserts only a named development agency, a local admin role with client, requirement, communication and file permissions, and the configured local user. The second adds three clearly labeled fictional clients with draft, review and confirmed requirements, items, communications, reference links and activity. Both scripts are production-disabled; the demo script uses stable IDs and empty update branches so reruns do not overwrite existing data. Do not enable this adapter in production. Production identity/JWT is not implemented.
 
 ## Current capabilities
 
@@ -67,4 +68,4 @@ npm run build
 
 The database API integration tests use the configured local DB, create UUID-tagged fixture records, and remove only their own fixtures. They do not reset the database. Upload tests remove their own generated test object after checking API retrieval.
 
-See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md), [architecture](./docs/ARCHITECTURE.md), and [handover](./docs/HANDOVER.md).
+See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md), [architecture](./docs/ARCHITECTURE.md), [requirements traceability](./docs/REQUIREMENTS_TRACEABILITY.md), [interview preparation](./docs/INTERVIEW_PREPARATION.md), and [handover](./docs/HANDOVER.md).

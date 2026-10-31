@@ -6,6 +6,8 @@ Base URL: `http://localhost:5000/api`. All routes use the standard success envel
 
 Client Hub routes currently use a development-only actor resolved from the seeded local user and its agency/role. Enable only in ignored `backend/.env` with `ENABLE_DEV_AUTH=true` and `DEV_ACTOR_EMAIL=...`; seed using `npm run prisma:seed:dev`. Client create/edit requires `clients:manage`; requirement create/edit requires `requirements:manage`; confirmation requires `requirements:confirm`; communication logging requires `communications:manage`; file/reference write/removal requires `files:manage`. The guard is disabled in production and never trusts a browser-supplied agency/user id. Replace it with the shared Agency OS JWT verifier before deployment.
 
+For local demonstration data, run `npm run prisma:seed:dev` and then `npm run prisma:seed:demo` from `backend/`. The demo script is production-disabled and idempotent: stable fixture IDs are inserted only when absent; it does not clear or update existing rows. All records are fictional and visibly labeled `DEMO`.
+
 ## Routes
 
 | Method | Route | Behavior |
