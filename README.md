@@ -1,45 +1,66 @@
 # Agency OS — Client Hub
 
-Foundation for the Neirah Tech interview assignment: a client operating, communication and requirement management hub.
+Neirah Tech’s interview assignment: a client operating, communication and requirement management hub foundation, now connected to PostgreSQL and implementing client and requirement workflows.
 
-## Stack
+## Stack and prerequisites
 
-- `frontend/`: Next.js App Router, TypeScript, Tailwind CSS and Inter
-- `backend/`: NestJS REST API, DTO validation, Jest and Prisma ORM
-- PostgreSQL, configured through `DATABASE_URL`
+- Frontend: Next.js App Router, TypeScript, Tailwind CSS, Inter
+- API: NestJS REST, DTO validation, Jest
+- Persistence: PostgreSQL, Prisma 7 (`@prisma/adapter-pg`)
+- Install Node.js 24 or later and npm. The inspected local machine reports Node 25.2.1 / npm 11.6.2. PostgreSQL 18 is configured locally at `localhost:5433`; database name `agency_os_db`, role `postgres`.
 
-## Prerequisites
-
-Node.js 24.11+ (the Prisma 7 supported Node 24 line), npm, and PostgreSQL. The checked local machine reports Node 25.2.1/npm 11.6.2. The reachable local server is PostgreSQL 14.20, configured for port 5432 and Unix socket `/tmp`, with current local role `thakkifilyas` and maintenance database `postgres`. The intended `agency_os_db` database is absent on this instance. A TCP readiness check did not respond, and the separate PostgreSQL 18 pgAdmin connection has not been identified.
-
-## Install and run
+## Install and start
 
 ```sh
 cd frontend && npm install && npm run dev
-# In another terminal:
-cd backend && npm install && cp .env.example .env && npm run start:dev
+# second terminal
+cd backend && npm install && npm run start:dev
 ```
 
-Frontend: http://localhost:3000. API health: http://localhost:5000/api/health.
+Open `http://localhost:3000`; API liveness is at `http://localhost:5000/api/health`. Add `NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/api` to `frontend/.env.local` only if the API uses a different URL.
 
-Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/api` in `frontend/.env.local` if the API runs elsewhere. The landing page shows a connected health status where available; the client list area is explicitly illustrative and is not backed by client CRUD yet.
+## Database
 
-## Database setup
+`backend/.env` is local and ignored. Set `DATABASE_URL` to the verified local PostgreSQL 18 connection string and keep credentials out of source and chat. `.env.example` has safe placeholders. This project uses Prisma 7 config in `backend/prisma.config.ts` and its PostgreSQL adapter.
 
-1. Confirm whether the intended database should be on the PostgreSQL 14 socket instance or the separate PostgreSQL 18 server in pgAdmin. For the verified 14 instance, the observed role is `thakkifilyas`, the configured port is `5432`, and `agency_os_db` does not exist. No password was inspected or inferred.
-2. Create `agency_os_db` on the chosen instance using the intended development role.
-3. Set `DATABASE_URL` in `backend/.env`, for example `postgresql://ROLE:PASSWORD@localhost:PORT/agency_os_db?schema=public` (URL-encode reserved characters in credentials).
-4. Run `npm run prisma:generate`, then `npm run prisma:migrate -- --name foundation` from `backend/`.
+The target `agency_os_db` was verified with a read-only identity query (PostgreSQL 18.6, localhost:5433, role `postgres`) and was empty before the initial migration. The additive migration is tracked in `backend/prisma/migrations/20261031185016_client_hub/`. On a fresh local database, apply tracked migrations with `npm run prisma:migrate -- --name client-hub`; this does not reset data. `npx prisma migrate status` checks whether the schema is current.
 
-The schema is a standalone development contract for the canonical Agency OS entities and is not yet validated against the separate common integration standard. Review it against the upstream shared models before integration. No migration has been run against your database.
+```sh
+cd backend
+npm run prisma:generate
+npx prisma migrate status
+```
+
+The development-only actor seed requires local `DATABASE_URL`, `ENABLE_DEV_AUTH=true`, and `DEV_ACTOR_EMAIL` in ignored `backend/.env`:
+
+```sh
+npm run prisma:seed:dev
+```
+
+It creates/upserts only a named development agency, a local admin role with client/requirement permissions, and the configured local user. Do not enable this adapter in production. Production identity/JWT is not implemented.
+
+## Current capabilities
+
+- Agency-scoped client list, name search, pagination, create, edit, details and workspace summary.
+- Structured requirements with multiple ordered items, services, references, budget/currency, timing, preferences, constraints, assumptions and notes.
+- Proposed server-enforced status transitions, confirmation permission, immutable confirmed versions, audit entries, and JSON export of the approved snapshot.
+- Communications, file upload and activity timeline are integration placeholders for the next development phase.
 
 ## Verification
 
-From `frontend/`: `npm run lint`, `npm run build`.
-From `backend/`: `npm run build`, `npm test`, `npm run test:e2e`.
+```sh
+# frontend/
+npm run lint
+npx tsc --noEmit
+npm run build
 
-## Status and next work
+# backend/
+npx prisma validate
+npm test -- --watchman=false
+npm run test:e2e
+npm run build
+```
 
-The application shell, health endpoint, API response/error boundary, validation, Prisma schema and handover docs are foundations. Authentication, agency context, RBAC enforcement, client CRUD, requirement workflows, communications, uploads, activity timeline and confirmed-requirement export are pending. Do not deploy this foundation as an authenticated multi-tenant production system.
+The database API integration tests use the configured local DB, create UUID-tagged fixture records, and remove only their own fixtures. They do not reset the database.
 
-See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md), [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md), and [docs/HANDOVER.md](./docs/HANDOVER.md).
+See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md), [architecture](./docs/ARCHITECTURE.md), and [handover](./docs/HANDOVER.md).

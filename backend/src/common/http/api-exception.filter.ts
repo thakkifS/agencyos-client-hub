@@ -13,7 +13,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
       : status === HttpStatus.INTERNAL_SERVER_ERROR ? "An unexpected error occurred" : "Request could not be completed";
     const details = typeof message === "string" ? {} : { errors: message };
     const humanMessage = Array.isArray(message) ? "Request validation failed" : message;
-    const code = status === 400 ? "VALIDATION_ERROR" : status === 401 ? "UNAUTHORIZED" : status === 403 ? "FORBIDDEN" : status === 404 ? "NOT_FOUND" : status >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR";
+    const suppliedCode = raw && typeof raw === "object" && "code" in raw ? (raw as { code?: unknown }).code : undefined;
+    const code = typeof suppliedCode === "string" ? suppliedCode : status === 400 ? "VALIDATION_ERROR" : status === 401 ? "UNAUTHORIZED" : status === 403 ? "FORBIDDEN" : status === 404 ? "NOT_FOUND" : status >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR";
     response.status(status).json({ success: false, message: humanMessage, code, details });
   }
 }

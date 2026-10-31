@@ -1,30 +1,30 @@
 # Architecture
 
-## Runtime shape
+## Runtime and request flow
 
 ```text
-Next.js App Router (port 3000)
-       │ REST /api
-       ▼
-NestJS (port 5000) ── Prisma adapter ── PostgreSQL
+Next.js App Router (3000) → typed REST client → Nest controller / DTO validation
+                                              → ClientHubService → Prisma 7 adapter → PostgreSQL 18
 ```
 
-The frontend owns presentation and typed API calls. Nest controllers map HTTP routes, services hold use-case logic, DTOs are the boundary for future writes, and global pipes/filters/interceptors enforce shared HTTP behavior. The health route is deliberately independent of database connectivity.
+`AppShell` supplies the Agency OS navigation and design tokens. Frontend API failures are surfaced as errors rather than replaced with illustrative client rows. Controllers stay thin; `ClientHubService` owns agency scoping, state transitions, transactional writes and revision snapshots. Prisma models retain the canonical Agency, User, Role, Permission, Client, Project, Task, Notification and AuditLog entities. `ClientNote` did not exist in the repository, so the schema now adds a small agency-linked note model.
 
-## Tenant and authorization boundary
+## PostgreSQL and migrations
 
-The Prisma foundation carries `agencyId` on tenant-owned canonical records. `AgencyActor`, `CurrentActor`, `AuthenticatedAgencyGuard`, `PermissionGuard`, and `assertAgencyOwnership` define integration seams. No JWT strategy is wired yet, so there are no authenticated business endpoints. A future token verifier must populate the request actor from a verified token; controllers must never accept a caller-selected agency as authority. Cross-agency relationships (for example, a project and client) require same-agency validation in service transactions before writes.
+Prisma 7 reads CLI configuration from `backend/prisma.config.ts`; runtime uses `@prisma/adapter-pg`. The local target was verified as PostgreSQL 18.6 at `localhost:5433`, database `agency_os_db`, role `postgres`. A non-destructive identity/catalog inspection found no public business tables or migration table before setup. The reviewed first migration creates the canonical and Client Hub tables and constraints; it has no drops or resets. Migration history is committed in `backend/prisma/migrations/`.
 
-## Persistence
+All tenant-owned records carry `agencyId`. Relations such as Requirement→Client, Requirement→Preparer, Project→Client and Task→Project use composite same-agency foreign keys. Services additionally scope reads and writes by actor agency and resolve related clients within that agency.
 
-`backend/prisma/schema.prisma` is a minimal local contract for the canonical entities listed in the assignment. It is not asserted to match the separate Agency OS integration standard because that PDF could not be fully text-extracted in this environment. The repository had no prior Prisma models, migrations, client services or connection configuration. Prisma 7 CLI configuration lives in `prisma.config.ts`; runtime PostgreSQL uses the official `@prisma/adapter-pg` adapter. `PrismaModule` is included but stays dormant when `DATABASE_URL` is absent, so the API health endpoint remains usable without pretending the DB is connected.
+## Requirement workflow and versioning
 
-## Frontend
+The server validates transitions and authorization. Proposed transitions: DRAFT→UNDER_REVIEW/ARCHIVED; UNDER_REVIEW→DRAFT/CHANGES_REQUESTED/CONFIRMED/ARCHIVED; CHANGES_REQUESTED→DRAFT/UNDER_REVIEW/ARCHIVED; CONFIRMED→CHANGES_REQUESTED/ARCHIVED; ARCHIVED terminal. These edges are a policy choice, not prescribed by the task PDF.
 
-The reusable `AppShell` provides responsive navigation, workspace identity and account controls. Design tokens live in `app/globals.css`. The client list rows are explicitly illustrative. The API status badge reads the real health endpoint and reports checking, connected or unavailable states.
+Confirmation runs in a transaction: set confirmer/time, snapshot the requirement and ordered items/references in `RequirementRevision`, and append `AuditLog`. The `version` is per requirement and unique. Content snapshots are JSON-safe (Decimal values as strings, timestamps as ISO strings). Ordinary PATCH rejects CONFIRMED and ARCHIVED records; revisions to a confirmed requirement must pass through CHANGES_REQUESTED and reconfirmation. Export reads the highest approved snapshot and requires active CONFIRMED status.
 
-## Extension points
+## Development identity and production boundary
 
-Add requirement and communication entities only after comparing them with shared Agency OS definitions. Keep requirement confirmation and export as a versioned integration contract rather than coupling it to a UI-only shape. Keep file storage behind a provider boundary; uploaded bytes and reference links should have separate validation rules.
+There is no shared JWT provider in this standalone assignment repository. For local development, `DevelopmentActorGuard` is enabled only when `ENABLE_DEV_AUTH=true`, `NODE_ENV` is not production, and the configured `DEV_ACTOR_EMAIL` resolves to the seeded development user. Actor agency, user and permission claims are read from PostgreSQL, not request data. Do not enable this adapter in deployed environments. Replace it with the Agency OS JWT verifier and shared RBAC policy. API-level authentication is not production-ready.
 
-The requirement brief’s partially recoverable text exposed the labels `DRAFT`, `UNDER_REVIEW`, and `CONFIRMED`. Treat those as a partial clue only: verify the full workflow and allowed transitions in the original brief before encoding them in the schema or API.
+## Next phase
+
+Communications, file upload/storage and a unified activity timeline have placeholder contracts only. Implement them through shared Agency OS entities/services before adding quotations, invoicing or delivery modules. No unrelated modules are included.

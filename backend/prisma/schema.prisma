@@ -22,6 +22,21 @@ enum TaskStatus {
   BLOCKED
 }
 
+enum RequirementStatus {
+  DRAFT
+  UNDER_REVIEW
+  CONFIRMED
+  CHANGES_REQUESTED
+  ARCHIVED
+}
+
+enum RequirementPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 model Agency {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -34,6 +49,11 @@ model Agency {
   tasks     Task[]
   notices   Notification[]
   auditLogs AuditLog[]
+  clientNotes ClientNote[]
+  requirements ClientRequirement[]
+  requirementItems RequirementItem[]
+  requirementReferences RequirementReference[]
+  requirementRevisions RequirementRevision[]
 }
 
 model User {
@@ -45,9 +65,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Restrict)
-  role      Role?    @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  role      Role?    @relation(fields: [agencyId, roleId], references: [agencyId, id], onDelete: Restrict)
   notices   Notification[]
   auditLogs AuditLog[]
+  preparedRequirements ClientRequirement[] @relation("RequirementPreparedBy")
+  confirmedRequirements ClientRequirement[] @relation("RequirementConfirmedBy")
+  createdNotes ClientNote[]
+  createdRequirementReferences RequirementReference[]
+  createdRequirementRevisions RequirementRevision[]
+  @@unique([agencyId, id])
   @@unique([agencyId, email])
   @@index([agencyId])
 }
@@ -61,6 +87,7 @@ model Role {
   users       User[]
   permissions Permission[]
   @@unique([agencyId, name])
+  @@unique([agencyId, id])
 }
 
 model Permission {
@@ -73,14 +100,118 @@ model Client {
   id           String       @id @default(uuid()) @db.Uuid
   agencyId     String       @db.Uuid
   name         String
+  primaryContactName String?
   primaryEmail String?
+  primaryPhone String?
+  website      String?
   status       ClientStatus @default(LEAD)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   agency       Agency       @relation(fields: [agencyId], references: [id], onDelete: Restrict)
   projects     Project[]
+  notes        ClientNote[]
+  requirements ClientRequirement[]
   @@index([agencyId, status])
   @@index([agencyId, name])
+  @@unique([agencyId, id])
+}
+
+model ClientNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  agencyId  String   @db.Uuid
+  clientId  String   @db.Uuid
+  authorId  String   @db.Uuid
+  content   String   @db.Text
+  isInternal Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  client    Client   @relation(fields: [agencyId, clientId], references: [agencyId, id], onDelete: Restrict)
+  author    User     @relation(fields: [agencyId, authorId], references: [agencyId, id], onDelete: Restrict)
+  @@index([agencyId, clientId, createdAt])
+}
+
+model ClientRequirement {
+  id                    String           @id @default(uuid()) @db.Uuid
+  agencyId              String           @db.Uuid
+  clientId              String           @db.Uuid
+  title                 String           @db.VarChar(200)
+  businessObjective     String           @db.Text
+  requestedServices     String[]         @default([])
+  designPreferences     String?          @db.Text
+  referenceLinks        String[]         @default([])
+  budgetMin             Decimal?         @db.Decimal(12, 2)
+  budgetMax             Decimal?         @db.Decimal(12, 2)
+  currency              String?          @db.VarChar(3)
+  expectedTimeline      String?          @db.VarChar(200)
+  targetDate            DateTime?        @db.Timestamptz(3)
+  constraints           String?          @db.Text
+  assumptions           String?          @db.Text
+  additionalNotes       String?          @db.Text
+  preparedById          String           @db.Uuid
+  confirmedById         String?          @db.Uuid
+  confirmedAt           DateTime?        @db.Timestamptz(3)
+  status                RequirementStatus @default(DRAFT)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  agency                Agency           @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  client                Client           @relation(fields: [agencyId, clientId], references: [agencyId, id], onDelete: Restrict)
+  preparedBy            User             @relation("RequirementPreparedBy", fields: [agencyId, preparedById], references: [agencyId, id], onDelete: Restrict)
+  confirmedBy           User?            @relation("RequirementConfirmedBy", fields: [agencyId, confirmedById], references: [agencyId, id], onDelete: Restrict)
+  items                 RequirementItem[]
+  references            RequirementReference[]
+  revisions             RequirementRevision[]
+  @@unique([agencyId, id])
+  @@index([agencyId, clientId, status, updatedAt])
+}
+
+model RequirementItem {
+  id            String              @id @default(uuid()) @db.Uuid
+  agencyId      String              @db.Uuid
+  requirementId String              @db.Uuid
+  title         String              @db.VarChar(200)
+  description   String?             @db.Text
+  category      String?             @db.VarChar(100)
+  priority      RequirementPriority @default(NORMAL)
+  notes         String?             @db.Text
+  sortOrder     Int
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  agency        Agency              @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  requirement   ClientRequirement   @relation(fields: [agencyId, requirementId], references: [agencyId, id], onDelete: Restrict)
+  @@unique([requirementId, sortOrder])
+  @@index([agencyId, requirementId, sortOrder])
+}
+
+model RequirementReference {
+  id            String            @id @default(uuid()) @db.Uuid
+  agencyId      String            @db.Uuid
+  requirementId String            @db.Uuid
+  createdById   String            @db.Uuid
+  label         String            @db.VarChar(200)
+  url           String            @db.VarChar(2048)
+  createdAt     DateTime          @default(now())
+  agency        Agency            @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  requirement   ClientRequirement @relation(fields: [agencyId, requirementId], references: [agencyId, id], onDelete: Restrict)
+  createdBy     User              @relation(fields: [agencyId, createdById], references: [agencyId, id], onDelete: Restrict)
+  @@index([agencyId, requirementId])
+}
+
+model RequirementRevision {
+  id             String            @id @default(uuid()) @db.Uuid
+  agencyId       String            @db.Uuid
+  requirementId  String            @db.Uuid
+  version        Int
+  contentSnapshot Json
+  changeReason   String?           @db.Text
+  confirmedById  String            @db.Uuid
+  confirmedAt    DateTime          @db.Timestamptz(3)
+  createdAt      DateTime          @default(now())
+  agency         Agency            @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  requirement    ClientRequirement @relation(fields: [agencyId, requirementId], references: [agencyId, id], onDelete: Restrict)
+  confirmedBy    User              @relation(fields: [agencyId, confirmedById], references: [agencyId, id], onDelete: Restrict)
+  @@unique([requirementId, version])
+  @@index([agencyId, requirementId, version])
 }
 
 model Project {
@@ -93,8 +224,9 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Restrict)
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  client    Client   @relation(fields: [agencyId, clientId], references: [agencyId, id], onDelete: Restrict)
   tasks     Task[]
+  @@unique([agencyId, id])
   @@index([agencyId, clientId])
 }
 
@@ -108,7 +240,7 @@ model Task {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   agency      Agency     @relation(fields: [agencyId], references: [id], onDelete: Restrict)
-  project     Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project     Project?   @relation(fields: [agencyId, projectId], references: [agencyId, id], onDelete: Restrict)
   @@index([agencyId, status])
 }
 
@@ -120,7 +252,7 @@ model Notification {
   readAt    DateTime?
   createdAt DateTime @default(now())
   agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [agencyId, userId], references: [agencyId, id], onDelete: Cascade)
   @@index([agencyId, userId, readAt])
 }
 
@@ -134,7 +266,7 @@ model AuditLog {
   metadata   Json?
   createdAt  DateTime @default(now())
   agency     Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actor      User?    @relation(fields: [agencyId, actorId], references: [agencyId, id], onDelete: Restrict)
   @@index([agencyId, createdAt])
   @@index([agencyId, entityType, entityId])
 }
