@@ -37,6 +37,20 @@ enum RequirementPriority {
   URGENT
 }
 
+enum CommunicationType {
+  CALL
+  EMAIL
+  MEETING
+  WHATSAPP_MESSAGE
+  VIDEO_MEETING
+  OTHER
+}
+
+enum ClientAssetType {
+  FILE
+  REFERENCE
+}
+
 model Agency {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
@@ -54,6 +68,8 @@ model Agency {
   requirementItems RequirementItem[]
   requirementReferences RequirementReference[]
   requirementRevisions RequirementRevision[]
+  communications ClientCommunication[]
+  assets ClientAsset[]
 }
 
 model User {
@@ -73,6 +89,8 @@ model User {
   createdNotes ClientNote[]
   createdRequirementReferences RequirementReference[]
   createdRequirementRevisions RequirementRevision[]
+  createdCommunications ClientCommunication[]
+  uploadedAssets ClientAsset[]
   @@unique([agencyId, id])
   @@unique([agencyId, email])
   @@index([agencyId])
@@ -111,6 +129,9 @@ model Client {
   projects     Project[]
   notes        ClientNote[]
   requirements ClientRequirement[]
+  communications ClientCommunication[]
+  assets ClientAsset[]
+  activityEvents AuditLog[] @relation("ClientAuditEvents")
   @@index([agencyId, status])
   @@index([agencyId, name])
   @@unique([agencyId, id])
@@ -161,7 +182,11 @@ model ClientRequirement {
   items                 RequirementItem[]
   references            RequirementReference[]
   revisions             RequirementRevision[]
+  communications        ClientCommunication[]
+  assets                ClientAsset[]
+  activityEvents        AuditLog[] @relation("RequirementAuditEvents")
   @@unique([agencyId, id])
+  @@unique([agencyId, clientId, id])
   @@index([agencyId, clientId, status, updatedAt])
 }
 
@@ -214,6 +239,51 @@ model RequirementRevision {
   @@index([agencyId, requirementId, version])
 }
 
+model ClientCommunication {
+  id              String            @id @default(uuid()) @db.Uuid
+  agencyId        String            @db.Uuid
+  clientId        String            @db.Uuid
+  requirementId   String?           @db.Uuid
+  type            CommunicationType
+  subject         String            @db.VarChar(200)
+  summary         String            @db.Text
+  participants    String[]          @default([])
+  occurredAt      DateTime          @db.Timestamptz(3)
+  followUpNotes   String?           @db.Text
+  createdById     String            @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  agency          Agency            @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  client          Client            @relation(fields: [agencyId, clientId], references: [agencyId, id], onDelete: Restrict)
+  requirement     ClientRequirement? @relation(fields: [agencyId, clientId, requirementId], references: [agencyId, clientId, id], onDelete: Restrict)
+  createdBy       User              @relation(fields: [agencyId, createdById], references: [agencyId, id], onDelete: Restrict)
+  @@index([agencyId, clientId, occurredAt, id])
+  @@index([agencyId, type, occurredAt])
+}
+
+model ClientAsset {
+  id              String          @id @default(uuid()) @db.Uuid
+  agencyId        String          @db.Uuid
+  clientId        String          @db.Uuid
+  requirementId   String?         @db.Uuid
+  type            ClientAssetType
+  originalName    String?         @db.VarChar(255)
+  mimeType        String?         @db.VarChar(100)
+  fileSize        Int?
+  storageKey      String?         @unique @db.VarChar(100)
+  externalUrl     String?         @db.VarChar(2048)
+  label           String          @db.VarChar(200)
+  uploadedById    String          @db.Uuid
+  uploadedAt      DateTime        @default(now())
+  deletedAt       DateTime?
+  agency          Agency          @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  client          Client          @relation(fields: [agencyId, clientId], references: [agencyId, id], onDelete: Restrict)
+  requirement     ClientRequirement? @relation(fields: [agencyId, clientId, requirementId], references: [agencyId, clientId, id], onDelete: Restrict)
+  uploadedBy      User            @relation(fields: [agencyId, uploadedById], references: [agencyId, id], onDelete: Restrict)
+  @@index([agencyId, clientId, uploadedAt, id])
+  @@index([agencyId, requirementId])
+}
+
 model Project {
   id        String   @id @default(uuid()) @db.Uuid
   agencyId  String   @db.Uuid
@@ -260,6 +330,9 @@ model AuditLog {
   id         String   @id @default(uuid()) @db.Uuid
   agencyId   String   @db.Uuid
   actorId    String?  @db.Uuid
+  clientId   String?  @db.Uuid
+  requirementId String? @db.Uuid
+  eventAt    DateTime @default(now()) @db.Timestamptz(3)
   action     String
   entityType String
   entityId   String?
@@ -267,6 +340,10 @@ model AuditLog {
   createdAt  DateTime @default(now())
   agency     Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   actor      User?    @relation(fields: [agencyId, actorId], references: [agencyId, id], onDelete: Restrict)
+  client     Client?  @relation("ClientAuditEvents", fields: [agencyId, clientId], references: [agencyId, id], onDelete: Restrict)
+  requirement ClientRequirement? @relation("RequirementAuditEvents", fields: [agencyId, clientId, requirementId], references: [agencyId, clientId, id], onDelete: Restrict)
   @@index([agencyId, createdAt])
   @@index([agencyId, entityType, entityId])
+  @@index([agencyId, clientId, createdAt, id])
+  @@index([agencyId, clientId, eventAt, id])
 }

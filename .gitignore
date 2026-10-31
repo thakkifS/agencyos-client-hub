@@ -12,6 +12,7 @@
 !**/.env.example
 **/.turbo/
 **/.cache/
+backend/storage/
 **/src/generated/
 **/npm-debug.log*
 **/yarn-debug.log*

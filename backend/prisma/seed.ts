@@ -13,7 +13,7 @@ async function main() {
     const agencyId = "a8b9a002-4f48-44b3-9b22-289b2f2f1a01";
     const agency = await prisma.agency.upsert({ where: { id: agencyId }, update: {}, create: { id: agencyId, name: "Neirah Tech (Development)" } });
     const role = await prisma.role.upsert({ where: { agencyId_name: { agencyId: agency.id, name: "Development Admin" } }, update: {}, create: { agencyId: agency.id, name: "Development Admin" } });
-    const keys = ["requirements:confirm", "requirements:manage", "clients:manage"];
+    const keys = ["requirements:confirm", "requirements:manage", "clients:manage", "communications:manage", "files:manage"];
     await prisma.role.update({ where: { id: role.id }, data: { permissions: { connectOrCreate: keys.map((key) => ({ where: { key }, create: { key } })) } } });
     await prisma.user.upsert({ where: { agencyId_email: { agencyId: agency.id, email: devEmail } }, update: { roleId: role.id }, create: { agencyId: agency.id, roleId: role.id, email: devEmail, name: "Local Development User" } });
   } finally {

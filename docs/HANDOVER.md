@@ -1,53 +1,60 @@
-# Handover
+# Handover — Task 04
 
-## Completed in Task 03
+## Completed
 
-- Read both supplied PDF requirements and retained the mandated Next/Nest/PostgreSQL/Prisma stack and Agency OS palette.
-- Verified a read-only connection to PostgreSQL 18.6 at `localhost:5433`, database `agency_os_db`, role `postgres`. The target had no public application tables or migration history. Reviewed an additive initial migration and applied it without reset/drop operations.
-- Added agency-scoped `ClientNote`, `ClientRequirement`, `RequirementItem`, `RequirementReference`, and `RequirementRevision` models while reusing the existing canonical Client and shared Agency OS entity contracts.
-- Added development-only seeded actor and server-derived agency context; no JWT issuer/provider exists yet.
-- Implemented client search/pagination/create/detail/update/hub endpoints, requirement CRUD/status/export APIs and connected frontend client/workspace screens.
-- Added transaction-based structured item persistence, same-agency relations, confirmation snapshots, audit events, and approved-version export.
-- Added API integration tests for client/requirement creation, confirmation/export, protected edits and cross-agency denial.
+- Read and preserved the existing Task 03 client/requirement foundation and verified the migration chain before changing it.
+- Added agency-scoped `ClientCommunication` and `ClientAsset` records, same-agency composite relationships, nullable client/requirement links on `AuditLog`, and a dedicated timeline event timestamp.
+- Implemented communication creation/listing with type/date filters, pagination and `occurredAt` separate from `createdAt`.
+- Implemented client/requirement file upload and external references. Local files use generated keys, a 10 MB allowlist/signature check, authorized API downloads, and soft removal. Raw storage paths/keys are not returned.
+- Implemented a paginated `AuditLog` timeline, including client/requirement/communication/file/reference events, safe descriptions, actor and linked requirement.
+- Connected Communications, Files / References and Activity panels in the existing Client Workspace. No second app shell or external integration was added.
+- Added two additive migrations: collaboration entities/audit foreign keys with existing requirement event backfill; and `AuditLog.eventAt` with timestamp backfill. No reset/drop was used.
 
-## Workflow policy
+## Files and data flow
 
-The specification prescribes five status labels but not every transition. Implemented proposed transitions: DRAFT → UNDER_REVIEW/ARCHIVED; UNDER_REVIEW → DRAFT/CHANGES_REQUESTED/CONFIRMED/ARCHIVED; CHANGES_REQUESTED → DRAFT/UNDER_REVIEW/ARCHIVED; CONFIRMED → CHANGES_REQUESTED/ARCHIVED; ARCHIVED terminal. Confirmed and archived requirement PATCH is rejected. Changes requested on confirmed content retain historical snapshots; reconfirmation creates the next version. The export endpoint requires current status CONFIRMED and returns the latest snapshot.
+- `backend/src/client-hub/client-collaboration.controller.ts`: API routes, upload and binary download boundary.
+- `backend/src/client-hub/client-collaboration.service.ts`: tenant validation, transaction/audit creation, filters, pagination and timeline mapping.
+- `backend/src/client-hub/local-asset-storage.service.ts`: development-only local storage, filename/type/size/signature validation and generated-key path checks.
+- `backend/src/client-hub/collaboration.dto.ts`: query/body validation.
+- `backend/prisma/schema.prisma` and `backend/prisma/migrations/`: entities, composite FKs and event indexes.
+- `frontend/components/client-hub/{communications-panel,assets-panel,timeline-panel}.tsx`: typed API-backed UI panels mounted in the existing client workspace.
+- `frontend/lib/api/client.ts`: typed response records and JSON/multipart request helper.
 
-## Pending / limitations
+Frontend sends JSON or multipart data to Nest. DTOs reject unexpected fields. The service obtains actor agency/user/permissions from the server context, checks the client and optional requirement within that agency, then writes the business row and `AuditLog` row in a Prisma transaction. Composite foreign keys provide a second ownership boundary. File downloads resolve the database record by asset ID and agency before opening a generated, validated local storage key.
 
-- Production JWT authentication and shared Agency OS permission-provider integration.
-- Communications, uploaded files/storage, and activity timeline; workspace returns explicit unavailable contracts.
-- A standalone development schema/migration was used because canonical shared application services were not present in this repository. Confirm migration compatibility with the parent Agency OS before integration.
-- Frontend includes connected create/edit/status flows and a dedicated requirement detail route. More fine-grained permission UX remains future polish.
+## Storage and security limitations
 
-## Commands and observed checks
+No approved object-storage integration existed in the repository. Files currently use a private, local development adapter in ignored `backend/storage/client-hub/`; accepted types are PDF, JPEG, PNG and WebP, maximum 10 MB. In production, upload returns 503. The adapter does not claim production storage security. Select the Agency OS approved storage provider and retention/purge policy before deployment. Removed file records are soft-deleted; local file bytes are retained pending that policy.
 
-- `npx prisma validate` — passed.
-- `npm run prisma:migrate -- --name client-hub` — additive migration created and applied successfully to verified local database.
-- `npm run prisma:seed:dev` — passed; local-only fixture rows are created/upserted without secrets in source.
+The dev actor remains disabled in production. Replace it with the shared Agency OS JWT/RBAC provider. WhatsApp/email/calendar sync is not present; communication entries are manual.
+
+## Migration and verification
+
+Migration history is in `backend/prisma/migrations/`; migration notes are in that directory’s README. Prisma status was verified before changes; Task 04 migrations applied successfully to local PostgreSQL 18.6 at `localhost:5433`, database `agency_os_db`, role `postgres`. No passwords are documented or logged.
+
+Commands and results:
+
+- `npx prisma validate` — schema validation passes.
+- `npx prisma migrate deploy` — applies tracked migrations without schema reset; Task 04 migrations applied.
+- `npm run prisma:seed:dev` — idempotently grants local development role permissions for client, requirement, communication and file actions.
 - Backend `npm run build` — passed.
-- Backend `npm test -- --watchman=false` — passed (health unit test).
-- Backend `npm run test:e2e` — passed (2 suites, 3 tests) against PostgreSQL. The pg adapter emitted a `pg@9` query concurrency deprecation warning; no test failures.
-- Frontend `npm run lint`, `npx tsc --noEmit`, `npm run build` — passed after the structured editor expansion.
+- Backend `npm test -- --watchman=false` — passed; includes workflow/security and local-file validation unit tests.
+- Backend `npm run test:e2e` — passed against PostgreSQL; covers existing requirement workflow, communication filters/dates, invalid relationships, uploads/downloads, removal, tenant isolation and timeline ordering.
+- Frontend `npm run lint`, `npx tsc --noEmit`, `npm run build` — passed.
+- `git diff --check` — passed after final edits.
 
-No commits or pushes were made. The existing user change to `frontend/next-env.d.ts` was preserved. Local credentials remain in ignored `backend/.env` and are not reproduced here.
+The PostgreSQL adapter emits a `pg@9` concurrency deprecation warning during e2e tests; all tests pass. No dependency was added. No commit or push was made. The prior user change to `frontend/next-env.d.ts` is preserved.
 
-## Suggested commits
+## Interview questions
 
-1. `feat: add agency-scoped client and requirement APIs`
-2. `feat: add client workspace and requirement workflow UI`
-3. `test: cover tenant isolation and requirement confirmation`
-4. `docs: document database and local development workflow`
+- **How do you prevent cross-agency requirement links?** Service checks bind `clientId` and `requirementId` to the actor agency and same client; composite database FKs enforce the relationship again.
+- **How do file downloads avoid path traversal?** The caller supplies only an asset UUID; the database lookup is agency-scoped, and storage uses an internally generated UUID key validated against a strict pattern and resolved under the private storage root.
+- **Why separate `occurredAt`, `eventAt` and `createdAt`?** They respectively represent when a conversation happened, when the activity should appear in the timeline, and when the record was persisted.
+- **Why use `AuditLog` for the timeline?** Existing workflow events already use it; adding client/requirement links and a safe event projection avoids a duplicate activity store.
+- **What changes before production?** Replace development actor/local files with shared JWT/RBAC and approved object storage, then define retention, quotas and malware scanning policy.
 
-## Interview prompts with short answers
+## Tanglish summary
 
-- **Why composite tenant foreign keys?** They make cross-agency links invalid in the database as well as in service checks.
-- **How is a confirmed requirement protected?** Regular edits are rejected; confirmation snapshots create immutable versions in the same transaction as status/audit changes.
-- **How does export avoid draft leakage?** It checks the active status and returns the latest confirmed snapshot, not the mutable working state.
-- **Where does agency identity come from?** From a verified actor context resolved server-side; the local adapter derives it from a configured seeded user and must be replaced by shared JWT authentication for production.
-- **Why keep health independent of PostgreSQL?** Liveness can still report a running API when database integration is unavailable; a separate readiness probe should check storage in a deployed environment.
+Communication logs, files/references, timeline ellam existing client workspace-la connect pannirukken. Ella request-um actor agency scope-la validate aagum; file download-um asset ID moolama authorize pannitu private local storage-lendhu stream pannum. Local storage demo/dev-kku mattum; production-la approved storage provider and JWT auth connect pannanum.
 
-## Short Tanglish explanation
-
-Client data agency scope-la filter aagum; requirement create/edit/status change ellam Nest service moolama validate aagi Prisma transaction-la PostgreSQL-ku pogum. Confirm pannina udane approved snapshot version save aagum; later changes old approved version-ai overwrite panna mudiyadhu. Local demo auth mattum irukku; production-la shared JWT auth connect pannanum.
+Suggested commits: `feat: add client communications and audit timeline`; `feat: add secure client files and references`; `test: cover tenant isolation and collaboration APIs`; `docs: document collaboration storage and timeline`.

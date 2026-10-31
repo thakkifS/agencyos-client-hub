@@ -7,13 +7,13 @@ Next.js App Router (3000) → typed REST client → Nest controller / DTO valida
                                               → ClientHubService → Prisma 7 adapter → PostgreSQL 18
 ```
 
-`AppShell` supplies the Agency OS navigation and design tokens. Frontend API failures are surfaced as errors rather than replaced with illustrative client rows. Controllers stay thin; `ClientHubService` owns agency scoping, state transitions, transactional writes and revision snapshots. Prisma models retain the canonical Agency, User, Role, Permission, Client, Project, Task, Notification and AuditLog entities. `ClientNote` did not exist in the repository, so the schema now adds a small agency-linked note model.
+`AppShell` supplies the Agency OS navigation and design tokens. Frontend API failures are surfaced as errors rather than replaced with illustrative client rows. Controllers stay thin; `ClientHubService` owns client and requirement workflows, while `ClientCollaborationService` owns communications, assets and timeline queries. Both scope records by the server-derived actor agency. Prisma models retain the canonical Agency, User, Role, Permission, Client, Project, Task, Notification and AuditLog entities. `ClientNote` did not exist in the repository, so the Phase 2 schema adds a small agency-linked note model.
 
 ## PostgreSQL and migrations
 
-Prisma 7 reads CLI configuration from `backend/prisma.config.ts`; runtime uses `@prisma/adapter-pg`. The local target was verified as PostgreSQL 18.6 at `localhost:5433`, database `agency_os_db`, role `postgres`. A non-destructive identity/catalog inspection found no public business tables or migration table before setup. The reviewed first migration creates the canonical and Client Hub tables and constraints; it has no drops or resets. Migration history is committed in `backend/prisma/migrations/`.
+Prisma 7 reads CLI configuration from `backend/prisma.config.ts`; runtime uses `@prisma/adapter-pg`. The local target was verified as PostgreSQL 18.6 at `localhost:5433`, database `agency_os_db`, role `postgres`. Three migrations are tracked: the Phase 2 foundation, collaboration entities and audit links, and `AuditLog.eventAt` with a backfill from the original `createdAt`. The Task 04 migrations add tables/columns/indexes/FKs, preserve earlier records and do not reset or drop data.
 
-All tenant-owned records carry `agencyId`. Relations such as Requirement→Client, Requirement→Preparer, Project→Client and Task→Project use composite same-agency foreign keys. Services additionally scope reads and writes by actor agency and resolve related clients within that agency.
+All tenant-owned records carry `agencyId`. Relations such as Requirement→Client, Communication→Client/Requirement, Asset→Client/Requirement, AuditLog→Client/Requirement, Project→Client and Task→Project use composite same-agency foreign keys. Services additionally scope reads and writes by actor agency and resolve related clients/requirements within that agency. Request DTOs reject foreign fields through whitelist validation.
 
 ## Requirement workflow and versioning
 
@@ -25,6 +25,16 @@ Confirmation runs in a transaction: set confirmer/time, snapshot the requirement
 
 There is no shared JWT provider in this standalone assignment repository. For local development, `DevelopmentActorGuard` is enabled only when `ENABLE_DEV_AUTH=true`, `NODE_ENV` is not production, and the configured `DEV_ACTOR_EMAIL` resolves to the seeded development user. Actor agency, user and permission claims are read from PostgreSQL, not request data. Do not enable this adapter in deployed environments. Replace it with the Agency OS JWT verifier and shared RBAC policy. API-level authentication is not production-ready.
 
+## Communications and files
+
+Communication rows hold type, subject, summary, participants, `occurredAt`, optional follow-up and same-client requirement relation. Creation and audit event happen in one database transaction. `createdAt` remains distinct from occurrence time.
+
+No approved object-storage provider existed in this repo. `LocalAssetStorageService` is therefore explicitly local-development-only and stores private bytes beneath ignored `backend/storage/client-hub/`. It generates UUID storage keys, accepts only PDF/JPEG/PNG/WebP up to 10 MB, checks the actual file signature, normalizes the display filename and never builds a download path from user input. Downloads first resolve an active asset by both ID and actor agency; `StreamableFile` sends private/no-store bytes with `nosniff`. References are HTTP(S) URLs and the server does not fetch them. Removal is soft (sets `deletedAt`), retaining local bytes; a production retention/purge policy and approved provider remain decisions for deployment. No cloud dependency was added.
+
+## Unified timeline
+
+`AuditLog` remains the event source for client, requirement, communication, and asset actions; the timeline also merges existing `ClientNote` rows as generic note-added events. New business actions append one audit row in the same transaction as their write. Client and optional requirement IDs have same-agency foreign keys; the Task 04 migration backfills existing requirement audit links. `eventAt` is separate from audit row creation and uses communication `occurredAt` where applicable. Timeline reads are agency/client-scoped, ordered by `eventAt DESC, id DESC`, paginated, and map allow-listed action codes to descriptions. Raw metadata and private note/communication/file content are never returned.
+
 ## Next phase
 
-Communications, file upload/storage and a unified activity timeline have placeholder contracts only. Implement them through shared Agency OS entities/services before adding quotations, invoicing or delivery modules. No unrelated modules are included.
+Replace the dev actor and local storage adapter with shared Agency OS JWT/RBAC and an approved production file store/retention design. Continue to avoid quotations, invoicing or delivery modules in this project phase.

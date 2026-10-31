@@ -45,18 +45,20 @@ describe("Client Hub database API (e2e)", () => {
       await request(app.getHttpServer()).patch(`/api/requirements/${requirementId}`).send({ title: "Silent overwrite" }).expect(409);
       await request(app.getHttpServer()).patch(`/api/requirements/${requirementId}/status`).send({ status: "DRAFT" }).expect(409);
     } finally {
+      if (clientId) await prisma.client.auditLog.deleteMany({ where: { clientId } });
       if (requirementId) await removeRequirement(requirementId);
       if (clientId) await prisma.client.client.deleteMany({ where: { id: clientId } });
     }
   });
 
   async function removeFixture(clientId: string) {
+    await prisma.client.auditLog.deleteMany({ where: { clientId } });
     const requirements = await prisma.client.clientRequirement.findMany({ where: { clientId }, select: { id: true } });
     for (const requirement of requirements) await removeRequirement(requirement.id);
     await prisma.client.client.deleteMany({ where: { id: clientId } });
   }
   async function removeRequirement(requirementId: string) {
-    await prisma.client.auditLog.deleteMany({ where: { entityType: "ClientRequirement", entityId: requirementId } });
+    await prisma.client.auditLog.deleteMany({ where: { requirementId } });
     await prisma.client.requirementRevision.deleteMany({ where: { requirementId } });
     await prisma.client.requirementReference.deleteMany({ where: { requirementId } });
     await prisma.client.requirementItem.deleteMany({ where: { requirementId } });
