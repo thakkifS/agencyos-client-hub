@@ -5,7 +5,7 @@ import type { Response } from "express";
 import { CurrentActor } from "../common/auth/agency-context";
 import type { AgencyActor } from "../common/auth/agency-context";
 import { DevelopmentActorGuard } from "./development-actor.guard";
-import { AssetQueryDto, CommunicationQueryDto, CreateCommunicationDto, CreateReferenceDto, TimelineQueryDto, UploadClientFileDto } from "./collaboration.dto";
+import { AssetQueryDto, CommunicationQueryDto, CreateCommunicationDto, CreateReferenceDto, TimelineQueryDto, UploadClientFileDto } from "./dto/collaboration.dto";
 import { ClientCollaborationService } from "./client-collaboration.service";
 import type { UploadBufferFile } from "./local-asset-storage.service";
 

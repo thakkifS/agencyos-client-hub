@@ -3,7 +3,8 @@ import type { AgencyActor } from "../common/auth/agency-context";
 import { PrismaService } from "../prisma/prisma.service";
 import { Prisma } from "../generated/prisma/client";
 import { LocalAssetStorageService, type UploadBufferFile } from "./local-asset-storage.service";
-import type { AssetQueryDto, CommunicationQueryDto, TimelineQueryDto } from "./collaboration.dto";
+import type { AssetQueryDto, CommunicationQueryDto, TimelineQueryDto } from "./dto/collaboration.dto";
+import { describeClientActivity } from "./activity-description";
 
 type CommunicationInput = { type: "CALL" | "EMAIL" | "MEETING" | "WHATSAPP_MESSAGE" | "VIDEO_MEETING" | "OTHER"; subject: string; summary: string; participants?: string[]; occurredAt: string; followUpNotes?: string; requirementId?: string };
 
@@ -121,16 +122,10 @@ export class ClientCollaborationService {
       this.prisma.client.clientNote.count({ where: { agencyId: actor.agencyId, clientId } }),
     ]);
     const total = auditCount + noteCount;
-    return { items: events.map((event) => ({ id: event.id, eventType: event.eventType, clientId: event.clientId, requirementId: event.requirementId, actor: event.actorId && event.actorName ? { id: event.actorId, name: event.actorName } : null, occurredAt: event.occurredAt, description: event.eventType === "CLIENT_NOTE_ADDED" ? "Client note added" : this.activityDescription(event.eventType, event.metadata), relatedRequirementTitle: event.relatedRequirementTitle })), pagination: { page: query.page, limit: query.limit, total, pages: Math.ceil(total / query.limit) } };
+    return { items: events.map((event) => ({ id: event.id, eventType: event.eventType, clientId: event.clientId, requirementId: event.requirementId, actor: event.actorId && event.actorName ? { id: event.actorId, name: event.actorName } : null, occurredAt: event.occurredAt, description: event.eventType === "CLIENT_NOTE_ADDED" ? "Client note added" : describeClientActivity(event.eventType, event.metadata), relatedRequirementTitle: event.relatedRequirementTitle })), pagination: { page: query.page, limit: query.limit, total, pages: Math.ceil(total / query.limit) } };
   }
 
-  private activityDescription(action: string, metadata: unknown) {
-    const data = metadata && typeof metadata === "object" ? metadata as Record<string, unknown> : {};
-    const names: Record<string, string> = { CLIENT_CREATED: "Client record created", CLIENT_UPDATED: "Client details updated", REQUIREMENT_CREATED: "Requirement created", REQUIREMENT_UPDATED: "Requirement details updated", REQUIREMENT_DRAFT: "Requirement returned to draft", REQUIREMENT_UNDER_REVIEW: "Requirement submitted for review", REQUIREMENT_CHANGES_REQUESTED: "Changes requested for requirement", REQUIREMENT_CONFIRMED: "Requirement confirmed", REQUIREMENT_REVISION_CREATED: "Confirmed requirement revision created", REQUIREMENT_ARCHIVED: "Requirement archived", COMMUNICATION_RECORDED: `Communication logged (${String(data.communicationType ?? "OTHER").replaceAll("_", " ")})`, FILE_ADDED: "File uploaded", REFERENCE_ADDED: "Reference link added", FILE_REMOVED: "File removed", REFERENCE_REMOVED: "Reference link removed" };
-    return names[action] ?? "Client activity recorded";
-  }
-
-  private publicAsset(asset: { id: string; clientId: string; requirementId: string | null; type: "FILE" | "REFERENCE"; originalName: string | null; mimeType: string | null; fileSize: number | null; externalUrl: string | null; label: string; uploadedAt: Date; uploadedBy: { id: string; name: string }; requirement: { id: string; title: string } | null }) {
+  private publicAsset(asset: { id: string; clientId: string; requirementId: string | null; type: "FILE" | "REFERENCE"; originalName: string | null; mimeType: string | null; fileSize: number | null; externalUrl: string | null; label: string; uploadedAt: Date; uploadedBy: { id: string; name: string }; requirement: { id: string; title: string | null } | null }) {
     return { id: asset.id, clientId: asset.clientId, requirementId: asset.requirementId, type: asset.type, originalName: asset.originalName, mimeType: asset.mimeType, fileSize: asset.fileSize, externalUrl: asset.externalUrl, label: asset.label, uploadedAt: asset.uploadedAt, uploadedBy: asset.uploadedBy, requirement: asset.requirement, downloadUrl: asset.type === "FILE" ? `/api/assets/${asset.id}/download` : null };
   }
   private requirePermission(actor: AgencyActor, permission: string) { if (!actor.permissions.includes(permission)) throw new ForbiddenException({ code: "PERMISSION_DENIED", message: `Required permission ${permission} is missing` }); }

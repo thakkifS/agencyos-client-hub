@@ -14,8 +14,9 @@ For local demonstration data, run `npm run prisma:seed:dev` and then `npm run pr
 |---|---|---|
 | GET | `/health` | Liveness only; no database probe |
 | GET | `/clients/capabilities` | Available and planned capability list |
+| GET | `/client-hub/overview` | Tenant-scoped dashboard counts and recent clients, requirements needing attention, communications, files/references and safe activity summaries |
 | GET | `/clients?search=&page=1&limit=20` | Active agency client list, name search, pagination |
-| POST | `/clients` | Create client (`name`; optional contact, email, phone, website, status) |
+| POST | `/clients` | Create client (name, primary contact, and at least one of email/phone/website; optional status) |
 | GET | `/clients/:id` | Agency-scoped client details and recent notes |
 | PATCH | `/clients/:id` | Update allowed client fields |
 | GET | `/clients/:id/hub` | Client overview, requirements, and communication/file/activity counts |
@@ -34,24 +35,28 @@ For local demonstration data, run `npm run prisma:seed:dev` and then `npm run pr
 | DELETE | `/assets/:assetId` | Soft-remove file/reference from active lists; retained per storage policy |
 | GET | `/clients/:id/timeline?page=1&limit=25` | Descending chronological client activity with deterministic ID tie-break |
 
+Client create/edit requires a trimmed company name (2–150 chars), primary contact (2–100; letters, marks, spaces, dots, apostrophes and hyphens), and one or more of email, phone or website. Email is validated and normalized to lowercase when supplied. A supplied phone must be a valid 7–15 digit international number; the frontend provides a country selector and posts E.164. Website accepts HTTP(S); `www.example.lk` is normalized to `https://www.example.lk`. Company names are unique per agency ignoring case and surrounding spaces. Email is deliberately not unique because multiple clients may share a team inbox. Duplicate company names return `409 DUPLICATE_CLIENT_NAME`; invalid field/contact combinations return a `400` with a stable code and human-readable message.
+
 Example requirement create:
 
 ```json
 {
   "title": "Website refresh",
   "businessObjective": "Improve qualified inbound leads",
-  "requestedServices": ["Design", "Development"],
+  "requestedServices": ["UI/UX Design", "Web Development"],
   "budgetMin": "5000.00",
   "budgetMax": "8000.00",
   "currency": "USD",
   "items": [
-    { "title": "Landing page", "priority": "HIGH", "sortOrder": 0 },
-    { "title": "Contact form", "priority": "NORMAL", "sortOrder": 1 }
+    { "title": "Landing page", "description": "Create a responsive landing page for the service", "requirementType": "FUNCTIONAL", "itemStatus": "PENDING", "priority": "HIGH", "sortOrder": 0 },
+    { "title": "Contact form", "description": "Collect customer enquiries with validation", "requirementType": "FUNCTIONAL", "itemStatus": "PENDING", "priority": "NORMAL", "sortOrder": 1 }
   ]
 }
 ```
 
 Confirm by PATCHing status to `UNDER_REVIEW`, then `CONFIRMED`. Confirmation requires `requirements:confirm` and stores confirmer/time plus an immutable content snapshot with a monotonic version. The export shape includes `contractVersion`, requirement/client IDs, `approvedVersion`, confirmation metadata and snapshot. Draft or unconfirmed content is never exported.
+
+Draft fields and individual item title/descriptions may be left blank and are stored as `null`. Review/confirmation checks require a 3–150 character requirement title, 10–2,000 character business objective, at least one allowed requested service, and at least one item whose title is 3–150 characters and description 3–500 characters. Item `requirementType` is `FUNCTIONAL` or `NON_FUNCTIONAL`; `itemStatus` is `PENDING`, `CLARIFICATION` or `ACCEPTED`; priority is `LOW`, `NORMAL`, `HIGH` or `URGENT`. Optional validation covers up to 10 unique HTTP(S) reference URLs, nonnegative budget values with max ≥ min, a valid currency code when budget is entered, a positive timeline value with days/weeks/months, non-past target date, and field length limits. Invalid supplied budget, currency, timeline or date values are rejected even on draft saves. The backend enforces approval completeness even if a client bypasses UI checks. Database checks and the normalized agency/company unique index provide a second layer. They are `NOT VALID` for pre-existing rows so legacy records are not rewritten; new writes are checked.
 
 ## Proposed status policy
 
@@ -90,3 +95,9 @@ Editing a confirmed record is rejected. Move it to `CHANGES_REQUESTED`, edit its
 Local file storage is development-only (`backend/storage/client-hub/`, ignored by Git). Uploads are limited to PDF, JPEG, PNG and WebP, 10 MB, with MIME/extension and content-signature checks. Database records expose an authorized download route, never the filesystem path or storage key. References accept only HTTP(S) URLs and are stored without server-side fetching. Removal sets `deletedAt`; bytes remain retained until a production retention policy is selected. The local adapter returns 503 in production.
 
 Timeline entries reuse `AuditLog` and merge existing `ClientNote` rows, link to the client and optional requirement, and store/use a dedicated `eventAt`. The API maps action codes to short descriptions and returns only event ID/type, client/requirement, actor, timestamp, description and related requirement title. It omits raw audit metadata, note body, communication summary, file metadata and external URLs. Communications use their `occurredAt` for the event timestamp; other events use the action time.
+
+The overview endpoint uses the same backend-resolved actor as the other Client Hub routes. Every aggregation query filters by that actor's `agencyId`; the browser cannot select an agency. Recent activity descriptions are allow-listed and do not expose raw audit metadata. The frontend requests this endpoint from `/overview`; it shows loading, error and empty states based on the response.
+
+## Login and route access limitation
+
+`/login` is a development preview page only. It intentionally does not collect credentials or issue a session. There is no shared identity provider, password verification, JWT verifier/session cookie, or frontend route protection in this repository. Client Hub API requests currently rely on the server-configured development actor, which is disabled in production. Before production use, integrate the approved Agency OS identity provider, replace the development guard with JWT/session verification, apply route authorization, and add authentication tests. The preview button only navigates to `/overview` in a non-production build; it is not an authentication mechanism.

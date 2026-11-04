@@ -11,13 +11,15 @@ Next.js App Router (3000) → typed REST client → Nest controller / DTO valida
 
 ## PostgreSQL and migrations
 
-Prisma 7 reads CLI configuration from `backend/prisma.config.ts`; runtime uses `@prisma/adapter-pg`. The local target was verified as PostgreSQL 18.6 at `localhost:5433`, database `agency_os_db`, role `postgres`. Three migrations are tracked: the Phase 2 foundation, collaboration entities and audit links, and `AuditLog.eventAt` with a backfill from the original `createdAt`. The Task 04 migrations add tables/columns/indexes/FKs, preserve earlier records and do not reset or drop data.
+Prisma 7 reads CLI configuration from `backend/prisma.config.ts`; runtime uses `@prisma/adapter-pg`. The local target was verified as PostgreSQL 18.6 at `localhost:5433`, database `agency_os_db`, role `postgres`. Four additive migrations are tracked: the Phase 2 foundation, collaboration entities and audit links, `AuditLog.eventAt` with a backfill, and the client/requirement validation rules and draft item fields. The latest migration was applied locally. Checks are `NOT VALID` where old records may not satisfy the newly introduced rules; PostgreSQL still enforces them for new/updated rows. Existing data was not reset, dropped, or mass-normalized.
 
 All tenant-owned records carry `agencyId`. Relations such as Requirement→Client, Communication→Client/Requirement, Asset→Client/Requirement, AuditLog→Client/Requirement, Project→Client and Task→Project use composite same-agency foreign keys. Services additionally scope reads and writes by actor agency and resolve related clients/requirements within that agency. Request DTOs reject foreign fields through whitelist validation.
 
 ## Requirement workflow and versioning
 
 The server validates transitions and authorization. Proposed transitions: DRAFT→UNDER_REVIEW/ARCHIVED; UNDER_REVIEW→DRAFT/CHANGES_REQUESTED/CONFIRMED/ARCHIVED; CHANGES_REQUESTED→DRAFT/UNDER_REVIEW/ARCHIVED; CONFIRMED→CHANGES_REQUESTED/ARCHIVED; ARCHIVED terminal. These edges are a policy choice, not prescribed by the task PDF.
+
+Draft title, objective and item text are nullable to support incomplete saved work. `validateRequirementForApproval` is the authoritative completion gate for review and confirmation, checking required content, approved service values, item fields, references, budget/currency, timeline/date and maximum text lengths. Item category/status are enums. A client’s primary contact is required; at least one of email, phone or website is required. Client form/API both trim values, detect duplicate company names within an agency, validate supplied contact methods, and normalize phone numbers to E.164 using `libphonenumber-js`. Email is not unique because shared contact inboxes are valid for multiple client accounts. Legacy phone strings were not rewritten; an unchanged legacy value is retained when editing other client fields.
 
 Confirmation runs in a transaction: set confirmer/time, snapshot the requirement and ordered items/references in `RequirementRevision`, and append `AuditLog`. The `version` is per requirement and unique. Content snapshots are JSON-safe (Decimal values as strings, timestamps as ISO strings). Ordinary PATCH rejects CONFIRMED and ARCHIVED records; revisions to a confirmed requirement must pass through CHANGES_REQUESTED and reconfirmation. Export reads the highest approved snapshot and requires active CONFIRMED status.
 
@@ -42,3 +44,7 @@ Replace the dev actor and local storage adapter with shared Agency OS JWT/RBAC a
 ## Final QA and handover
 
 `REQUIREMENTS_TRACEABILITY.md` maps the two Neirah Tech specifications to implementation, test evidence and limits. `INTERVIEW_PREPARATION.md` describes only behavior present in code. Development demonstration rows are created by `backend/prisma/demo-seed.ts`; fixed IDs and empty update branches make it repeatable without overwriting existing records. API e2e tests use run-local UUID fixtures and remove only those exact fixture IDs.
+
+## Task 06: Overview, navigation, and sign-in boundary
+
+The `/overview` page calls `GET /api/client-hub/overview`. The Nest service aggregates client, requirement, communication, active file/reference, audit and note records in parallel, with every query filtered by the agency resolved from the server-side actor. The response returns counts and bounded recent lists; safe activity text is allow-listed and raw audit metadata is omitted. The responsive `AppShell` navigation links to the overview sections and client list. `/login` is a development preview only: this standalone repository has no shared identity provider, credential verification, JWT/session issuance or frontend route guard. The preview collects no credentials and is not authentication. `frontend/app/icon.png` is the Next.js App Router favicon.

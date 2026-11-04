@@ -21,7 +21,7 @@ describe("Client collaboration API (e2e)", () => {
   it("logs and filters communications, creates timeline events, and rejects cross-agency associations", async () => {
     const tag = crypto.randomUUID(); let clientId = ""; let requirementId = ""; let foreignAgencyId = ""; let foreignClientId = ""; let foreignUserId = ""; let foreignRequirementId = "";
     try {
-      const client = await request(app.getHttpServer()).post("/api/clients").send({ name: `Communication e2e-${tag}` }).expect(201); clientId = client.body.data.id;
+      const client = await request(app.getHttpServer()).post("/api/clients").send({ name: `Communication e2e-${tag}`, primaryContactName: "QA Contact", primaryEmail: `comm-${tag}@example.invalid` }).expect(201); clientId = client.body.data.id;
       const requirement = await request(app.getHttpServer()).post(`/api/clients/${clientId}/requirements`).send({ title: "Meeting subject", businessObjective: "Document decisions" }).expect(201); requirementId = requirement.body.data.id;
       const occurredAt = "2026-10-31T10:30:00.000Z";
       const meeting = await request(app.getHttpServer()).post(`/api/clients/${clientId}/communications`).send({ type: "MEETING", subject: "Discovery call", summary: "Reviewed launch goals", participants: ["Client contact", "Account lead"], occurredAt, requirementId, followUpNotes: "Send a summary" }).expect(201);
@@ -35,7 +35,7 @@ describe("Client collaboration API (e2e)", () => {
 
       foreignAgencyId = crypto.randomUUID(); foreignClientId = crypto.randomUUID(); foreignUserId = crypto.randomUUID(); foreignRequirementId = crypto.randomUUID();
       await prisma.client.agency.create({ data: { id: foreignAgencyId, name: `Foreign comm ${tag}` } });
-      await prisma.client.client.create({ data: { id: foreignClientId, agencyId: foreignAgencyId, name: `Foreign client ${tag}` } });
+      await prisma.client.client.create({ data: { id: foreignClientId, agencyId: foreignAgencyId, name: `Foreign client ${tag}`, primaryContactName: "Foreign Tester", primaryEmail: `foreign-${tag}@example.invalid` } });
       await prisma.client.user.create({ data: { id: foreignUserId, agencyId: foreignAgencyId, email: `foreign-${tag}@example.invalid`, name: "Foreign test actor" } });
       await prisma.client.clientRequirement.create({ data: { id: foreignRequirementId, agencyId: foreignAgencyId, clientId: foreignClientId, preparedById: foreignUserId, title: "Foreign requirement", businessObjective: "Isolation fixture" } });
       await request(app.getHttpServer()).get(`/api/clients/${foreignClientId}/communications`).expect(404);
@@ -73,7 +73,7 @@ describe("Client collaboration API (e2e)", () => {
   it("validates uploads, scopes downloads to the actor agency, and soft-removes files", async () => {
     const tag = crypto.randomUUID(); let clientId = ""; let requirementId = ""; let assetId = ""; let foreignAgencyId = ""; let foreignClientId = ""; let foreignUserId = ""; let foreignRequirementId = ""; let foreignAssetId = ""; let storageKey: string | null = null;
     try {
-      const client = await request(app.getHttpServer()).post("/api/clients").send({ name: `Files e2e-${tag}` }).expect(201); clientId = client.body.data.id;
+      const client = await request(app.getHttpServer()).post("/api/clients").send({ name: `Files e2e-${tag}`, primaryContactName: "QA Contact", primaryEmail: `files-${tag}@example.invalid` }).expect(201); clientId = client.body.data.id;
       const requirement = await request(app.getHttpServer()).post(`/api/clients/${clientId}/requirements`).send({ title: "Client file association", businessObjective: "Store a scoped file" }).expect(201); requirementId = requirement.body.data.id;
       const pdf = Buffer.from("%PDF-1.7 test fixture");
       const uploaded = await request(app.getHttpServer()).post(`/api/clients/${clientId}/files`).attach("file", pdf, { filename: "../../private-plan.pdf", contentType: "application/pdf" }).field("label", "Project brief").field("requirementId", requirementId).expect(201);
@@ -93,7 +93,7 @@ describe("Client collaboration API (e2e)", () => {
 
       foreignAgencyId = crypto.randomUUID(); foreignClientId = crypto.randomUUID(); foreignUserId = crypto.randomUUID(); foreignRequirementId = crypto.randomUUID(); foreignAssetId = crypto.randomUUID();
       await prisma.client.agency.create({ data: { id: foreignAgencyId, name: `Foreign file ${tag}` } });
-      await prisma.client.client.create({ data: { id: foreignClientId, agencyId: foreignAgencyId, name: `Foreign client ${tag}` } });
+      await prisma.client.client.create({ data: { id: foreignClientId, agencyId: foreignAgencyId, name: `Foreign client ${tag}`, primaryContactName: "Foreign Tester", primaryEmail: `file-${tag}@example.invalid` } });
       await prisma.client.user.create({ data: { id: foreignUserId, agencyId: foreignAgencyId, email: `file-${tag}@example.invalid`, name: "Foreign test uploader" } });
       await prisma.client.clientRequirement.create({ data: { id: foreignRequirementId, agencyId: foreignAgencyId, clientId: foreignClientId, preparedById: foreignUserId, title: "Foreign file requirement", businessObjective: "Cross-tenant association fixture" } });
       await prisma.client.clientAsset.create({ data: { id: foreignAssetId, agencyId: foreignAgencyId, clientId: foreignClientId, type: "FILE", originalName: "foreign.pdf", mimeType: "application/pdf", fileSize: 8, storageKey: `${crypto.randomUUID()}.pdf`, label: "Foreign file", uploadedById: foreignUserId } });

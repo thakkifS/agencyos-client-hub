@@ -1,47 +1,94 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { Bell, ChevronDown, CircleHelp, Command, LayoutDashboard, MessageSquareText, Search, Settings2, UsersRound } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Activity, ClipboardList, FolderOpen, LayoutDashboard, Menu, MessageSquareText, UsersRound, X } from "lucide-react";
 
 const navigation = [
-  { label: "Overview", href: "/", icon: LayoutDashboard },
-  { label: "Client Hub", href: "/clients", icon: UsersRound, active: true },
-  { label: "Communications", href: "/clients", icon: MessageSquareText },
+  { label: "Overview", href: "/overview", icon: LayoutDashboard, key: "overview" },
+  { label: "Clients", href: "/clients", icon: UsersRound, key: "clients" },
+  { label: "Requirements", href: "/overview#requirements", icon: ClipboardList, key: "requirements" },
+  { label: "Communications", href: "/overview#communications", icon: MessageSquareText, key: "communications" },
+  { label: "Files & References", href: "/overview#files", icon: FolderOpen, key: "files" },
+  { label: "Activity Timeline", href: "/overview#activity", icon: Activity, key: "activity" },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] flex-col border-r border-[var(--border)] bg-white lg:flex">
-        <div className="flex h-[72px] items-center border-b border-[var(--border)] px-5">
-          <Image src="/agencyos-mark.jpeg" alt="Agency OS — Agency Operating System" width={200} height={65} className="h-auto w-[190px] object-contain" priority />
+function sectionFromLocation(pathname: string) {
+  if (pathname.startsWith("/clients") || pathname === "/") return "clients";
+  if (pathname === "/overview") {
+    const hash = window.location.hash.slice(1);
+    return navigation.some((item) => item.key === hash) ? hash : "overview";
+  }
+  return "overview";
+}
+
+export function AppShell({ children, pageTitle = "Client Hub" }: { children: React.ReactNode; pageTitle?: string }) {
+  const pathname = usePathname();
+  const [activeKey, setActiveKey] = useState("overview");
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileDialogRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const syncActive = () => setActiveKey(sectionFromLocation(pathname));
+    syncActive();
+    window.addEventListener("hashchange", syncActive);
+    window.addEventListener("popstate", syncActive);
+    return () => { window.removeEventListener("hashchange", syncActive); window.removeEventListener("popstate", syncActive); };
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const dialog = mobileDialogRef.current;
+    const trigger = mobileTriggerRef.current;
+    const focusable = () => dialog?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? [];
+    dialog?.querySelector<HTMLElement>('button[aria-label="Close navigation"]')?.focus();
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setMobileOpen(false); return; }
+      if (event.key !== "Tab") return;
+      const elements = Array.from(focusable());
+      if (!elements.length) return;
+      const first = elements[0], last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", handleKeydown);
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+      trigger?.focus();
+    };
+  }, [mobileOpen]);
+
+  function handleNavigate(key: string) {
+    setActiveKey(key);
+    setMobileOpen(false);
+  }
+
+  const links = (mobile = false) => <nav aria-label={mobile ? "Mobile main navigation" : "Main navigation"} className="space-y-1">
+    {navigation.map(({ label, href, icon: Icon, key }) => <Link key={key} href={href} onClick={() => handleNavigate(key)} aria-current={activeKey === key ? "page" : undefined} className={`app-nav-link flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] ${activeKey === key ? "bg-blue-50 text-blue-700" : "text-[var(--secondary)] hover:bg-slate-50 hover:text-[var(--foreground)]"}`}><Icon size={17} strokeWidth={1.8} aria-hidden="true"/><span>{label}</span>{activeKey === key && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" aria-hidden="true"/>}</Link>)}
+  </nav>;
+
+  return <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <aside className="app-shell-glass fixed inset-y-0 left-0 z-30 hidden w-[264px] flex-col border-r border-[var(--border)] lg:flex">
+      <div className="flex h-[76px] items-center border-b border-[var(--border)] px-5"><Image src="/agencyos-mark.jpeg" alt="Agency OS — Agency Operating System" width={200} height={65} className="h-auto w-[190px] object-contain" priority/></div>
+      <div className="px-3 pt-7"><p className="px-3 pb-3 text-xs font-semibold uppercase tracking-[0.15em] text-[var(--secondary)]">Client Hub</p>{links()}</div>
+      <div className="mt-auto border-t border-[var(--border)] p-3"><div className="flex items-center gap-3 rounded-xl bg-[var(--background)] p-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-xs font-semibold text-blue-700">NT</div><div className="min-w-0"><p className="truncate text-sm font-semibold">Neirah Tech</p><p className="text-xs text-[var(--secondary)]">Development workspace</p></div></div></div>
+    </aside>
+
+    <div className="lg:pl-[264px]">
+      <header className="app-shell-glass sticky top-0 z-20 flex h-[68px] items-center justify-between border-b border-[var(--border)] px-4 sm:px-7">
+        <div className="flex min-w-0 items-center gap-3">
+          <button ref={mobileTriggerRef} type="button" onClick={() => setMobileOpen(true)} aria-label="Open Client Hub navigation" aria-expanded={mobileOpen} aria-controls="mobile-client-hub-navigation" className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-white text-[var(--secondary)] transition-colors hover:bg-[var(--background)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] lg:hidden"><Menu size={19} aria-hidden="true"/></button>
+          <div className="flex min-w-0 items-center gap-3 lg:hidden"><Image src="/agencyos-mark.jpeg" alt="Agency OS" width={132} height={43} className="h-[36px] w-[110px] object-contain" priority/><span className="hidden border-l border-[var(--border)] pl-3 text-sm font-medium sm:inline">{pageTitle}</span></div>
+          <div className="hidden items-center gap-2 text-sm text-[var(--secondary)] lg:flex"><span>Client Hub</span><span className="text-[var(--border)]">/</span><span className="font-medium text-[var(--foreground)]">{pageTitle}</span></div>
         </div>
-        <div className="px-3 pt-6">
-          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
-          <nav aria-label="Main navigation" className="space-y-1">
-            {navigation.map(({ label, href, icon: Icon, active }) => <Link key={label} href={href} aria-current={active ? "page" : undefined} className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}><Icon size={17} strokeWidth={1.8} aria-hidden="true" />{label}</Link>)}
-          </nav>
-        </div>
-        <div className="mt-auto space-y-1 border-t border-[var(--border)] p-3">
-          <Link href="#help" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] text-slate-600 hover:bg-slate-50"><CircleHelp size={17} />Help center</Link>
-          <Link href="#settings" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] text-slate-600 hover:bg-slate-50"><Settings2 size={17} />Settings</Link>
-          <div className="mt-2 flex items-center gap-3 rounded-lg bg-slate-50 p-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">NT</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold">Neirah Tech</p><p className="text-[11px] text-slate-500">Agency workspace</p></div><ChevronDown size={15} className="text-slate-400" /></div>
-        </div>
-      </aside>
-      <div className="lg:pl-[252px]">
-        <header className="sticky top-0 z-20 flex h-[64px] items-center justify-between border-b border-[var(--border)] bg-white/95 px-4 backdrop-blur sm:px-7">
-          <div className="flex items-center lg:hidden"><Image src="/agencyos-mark.jpeg" alt="Agency OS" width={132} height={43} className="h-[38px] w-[118px] object-contain" priority /></div>
-          <div className="hidden items-center gap-2 text-xs text-slate-500 sm:flex"><span>Workspace</span><span className="text-slate-300">/</span><span className="font-medium text-slate-800">Client Hub</span></div>
-          <div className="ml-auto flex items-center gap-2 sm:gap-4">
-            <button aria-label="Search" className="hidden h-9 items-center gap-8 rounded-md border border-[var(--border)] px-3 text-xs text-slate-500 hover:border-slate-300 md:flex"><span className="flex items-center gap-2"><Search size={14}/>Search</span><span className="flex items-center gap-1 rounded border border-slate-200 px-1 py-0.5 text-[10px]"><Command size={10}/>K</span></button>
-            <button aria-label="Notifications" className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100"><Bell size={17}/><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-blue-600"/></button>
-            <div className="hidden h-7 border-l border-slate-200 sm:block"/><button className="flex items-center gap-2 rounded-md p-1.5 hover:bg-slate-50"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">DU</span><span className="hidden text-left sm:block"><span className="block text-xs font-semibold">Demo user</span><span className="block text-[10px] text-slate-500">Authentication pending</span></span><ChevronDown size={14} className="hidden text-slate-400 sm:block"/></button>
-          </div>
-        </header>
-        <nav aria-label="Mobile navigation" className="flex gap-1 overflow-x-auto border-b border-[var(--border)] bg-white px-3 py-2 lg:hidden">
-          {navigation.map(({ label, href, icon: Icon, active }) => <Link key={label} href={href} aria-current={active ? "page" : undefined} className={`inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-xs font-medium ${active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50"}`}><Icon size={15}/>{label}</Link>)}
-        </nav>
-        <main className="mx-auto w-full max-w-[1440px] px-4 py-7 sm:px-7 sm:py-9">{children}</main>
-      </div>
+        <div className="ml-auto flex items-center gap-3"><span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-xs font-semibold text-blue-700">NT</span><span className="hidden text-left sm:block"><span className="block text-sm font-semibold">Neirah Tech</span><span className="block text-xs text-[var(--secondary)]">Development workspace</span></span></div>
+      </header>
+      <main className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-7 sm:py-8">{children}</main>
     </div>
-  );
+
+    {mobileOpen && <div className="mobile-nav-backdrop fixed inset-0 z-50 lg:hidden"><button type="button" aria-label="Close navigation" onClick={() => setMobileOpen(false)} className="absolute inset-0 h-full w-full bg-slate-950/40"/><aside ref={mobileDialogRef} id="mobile-client-hub-navigation" role="dialog" aria-modal="true" aria-label="Client Hub navigation" className="mobile-nav-drawer relative flex h-full w-[min(86vw,340px)] flex-col border-r border-[var(--border)] bg-white p-4 shadow-2xl"><div className="flex h-12 items-center justify-between"><Image src="/agencyos-mark.jpeg" alt="Agency OS" width={132} height={43} className="h-[36px] w-[110px] object-contain"/><button type="button" onClick={() => setMobileOpen(false)} aria-label="Close navigation" className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] text-[var(--secondary)] hover:bg-[var(--background)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"><X size={18} aria-hidden="true"/></button></div><p className="px-3 pb-3 pt-7 text-xs font-semibold uppercase tracking-[0.15em] text-[var(--secondary)]">Client Hub</p>{links(true)}<div className="mt-auto rounded-xl bg-[var(--background)] p-3 text-sm font-medium">Neirah Tech<span className="mt-1 block text-xs font-normal text-[var(--secondary)]">Development workspace</span></div></aside></div>}
+  </div>;
 }
