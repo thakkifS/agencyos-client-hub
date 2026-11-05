@@ -7,13 +7,47 @@ type State = "checking" | "connected" | "unavailable";
 
 export function ApiStatus() {
   const [state, setState] = useState<State>("checking");
+
   useEffect(() => {
     let active = true;
-    getHealth().then(() => { if (active) setState("connected"); }).catch(() => { if (active) setState("unavailable"); });
-    return () => { active = false; };
+    getHealth()
+      .then(() => {
+        if (active) setState("connected");
+      })
+      .catch(() => {
+        if (active) setState("unavailable");
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const labels: Record<State, string> = { checking: "Checking API", connected: "API connected", unavailable: "API unavailable" };
-  const styles: Record<State, string> = { checking: "bg-amber-50 text-amber-700", connected: "bg-green-50 text-green-700", unavailable: "bg-slate-100 text-[var(--secondary)]" };
-  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${styles[state]}`}><span className={`h-1.5 w-1.5 rounded-full ${state === "connected" ? "bg-green-600" : state === "unavailable" ? "bg-slate-400" : "bg-amber-500"}`} />{labels[state]}</span>;
+  const labels: Record<State, string> = {
+    checking: "Checking API",
+    connected: "API Online",
+    unavailable: "API Offline",
+  };
+
+  const styles: Record<State, string> = {
+    checking: "bg-[var(--warning)]/10 text-[var(--warning)] border-[var(--warning)]/25",
+    connected: "bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/25",
+    unavailable: "bg-[var(--surface-elevated)] text-[var(--secondary)] border-[var(--border)]",
+  };
+
+  const dotColors: Record<State, string> = {
+    checking: "bg-[var(--warning)] animate-pulse",
+    connected: "bg-[var(--success)]",
+    unavailable: "bg-[var(--secondary)]",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border tracking-wide select-none ${styles[state]}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${dotColors[state]}`} aria-hidden="true" />
+      {labels[state]}
+    </span>
+  );
 }
+
+export default ApiStatus;

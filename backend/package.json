@@ -9,6 +9,8 @@
     "start:prod": "node dist/src/main.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:status": "prisma migrate status",
     "prisma:seed:dev": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"target\":\"ES2022\"}' prisma/seed.ts",
     "prisma:seed:demo": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"target\":\"ES2022\"}' prisma/demo-seed.ts",
     "test": "jest --runInBand",

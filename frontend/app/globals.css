@@ -1,11 +1,15 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  /* Mandatory Neirah Tech Light Theme Tokens */
   --primary: #2563eb;
   --primary-dark: #1d4ed8;
   --background: #f8fafc;
   --surface: #ffffff;
+  --surface-elevated: #ffffff;
   --foreground: #0f172a;
   --secondary: #475569;
   --border: #e2e8f0;
@@ -15,47 +19,220 @@
   color-scheme: light;
 }
 
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--background); color: var(--foreground); font-family: "Inter Variable", Inter, Arial, Helvetica, sans-serif; }
-button, a { -webkit-tap-highlight-color: transparent; }
-:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-::selection { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary-dark); }
+/* Premium Dark Glass Theme */
+html.dark,
+[data-theme="dark"] {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --background: #0f172a;
+  --surface: #111d31;
+  --surface-elevated: #17263d;
+  --foreground: #f8fafc;
+  --secondary: #cbd5e1;
+  --border: #334155;
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
+  color-scheme: dark;
+}
 
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 220ms ease, color 220ms ease;
+}
+
+button, a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.25);
+  color: var(--primary-dark);
+}
+
+/* Classic Light Glass Surfaces */
 .glass-panel {
-  background: color-mix(in srgb, var(--surface) 86%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 82%, white);
-  box-shadow: 0 18px 48px -30px rgb(15 23 42 / 24%), 0 1px 2px rgb(15 23 42 / 5%);
-  backdrop-filter: blur(18px) saturate(125%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.glass-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.glass-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 24px 64px rgba(15, 23, 42, 0.14),
+    0 4px 16px rgba(15, 23, 42, 0.06);
 }
 
 .app-shell-glass {
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(18px) saturate(125%);
-  box-shadow: 0 8px 28px -22px rgb(15 23 42 / 28%);
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
-.app-nav-link { transition: background-color 180ms ease, color 180ms ease, transform 180ms ease; }
-.app-nav-link:hover { transform: translateX(2px); }
-.mobile-nav-backdrop { animation: mobile-nav-fade 160ms ease-out both; }
-.mobile-nav-drawer { animation: mobile-nav-enter 200ms cubic-bezier(.2, .75, .25, 1) both; }
+/* Deep Navy Dark Glass Surfaces */
+html.dark .glass-panel,
+[data-theme="dark"] .glass-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 16px 44px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
 
-@keyframes mobile-nav-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes mobile-nav-enter { from { opacity: .85; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+html.dark .glass-card,
+[data-theme="dark"] .glass-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.15);
+}
 
+html.dark .glass-card:hover,
+[data-theme="dark"] .glass-card:hover {
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(37, 99, 235, 0.18);
+}
+
+html.dark .glass-modal,
+[data-theme="dark"] .glass-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.65),
+    0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+html.dark .app-shell-glass,
+[data-theme="dark"] .app-shell-glass {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* Navigation & Interactive Transitions */
+.app-nav-link {
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.app-nav-link:hover {
+  transform: translateX(2px);
+}
+
+.mobile-nav-backdrop {
+  animation: mobile-nav-fade 160ms ease-out both;
+}
+
+.mobile-nav-drawer {
+  animation: mobile-nav-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes mobile-nav-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mobile-nav-enter {
+  from { opacity: 0.85; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Atmosphere background for Login & Feature hero */
 .login-backdrop {
   background:
-    radial-gradient(ellipse at 12% 14%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 38%),
-    radial-gradient(ellipse at 88% 80%, color-mix(in srgb, var(--primary-dark) 9%, transparent), transparent 34%),
     var(--background);
 }
 
-.login-card-enter { animation: login-card-enter 420ms cubic-bezier(.2, .75, .25, 1) both; }
+html.dark .login-backdrop,
+[data-theme="dark"] .login-backdrop {
+  background: var(--background);
+}
+
+.login-card-enter {
+  animation: login-card-enter 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 
 @keyframes login-card-enter {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(12px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Micro-interaction page and modal animations */
+.animate-fade-in {
+  animation: fadeIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-up {
+  animation: slideUp 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Clean enterprise custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.65);
+}
+
+html.dark ::-webkit-scrollbar-thumb,
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover,
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

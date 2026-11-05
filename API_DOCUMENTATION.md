@@ -2,9 +2,13 @@
 
 Base URL: `http://localhost:5000/api`. All routes use the standard success envelope `{ "success": true, "data": ..., "message": "Operation completed successfully" }`. Errors are `{ "success": false, "message": "...", "code": "...", "details": {} }`. List responses include `{ items, pagination: { page, limit, total, pages } }`.
 
-## Local development identity
+## Authentication
 
-Client Hub routes currently use a development-only actor resolved from the seeded local user and its agency/role. Enable only in ignored `backend/.env` with `ENABLE_DEV_AUTH=true` and `DEV_ACTOR_EMAIL=...`; seed using `npm run prisma:seed:dev`. Client create/edit requires `clients:manage`; requirement create/edit requires `requirements:manage`; confirmation requires `requirements:confirm`; communication logging requires `communications:manage`; file/reference write/removal requires `files:manage`. The guard is disabled in production and never trusts a browser-supplied agency/user id. Replace it with the shared Agency OS JWT verifier before deployment.
+`POST /auth/signup` creates a new agency and its first Owner user; `POST /auth/login` verifies email/password. Both set a signed JWT in the HttpOnly `agencyos_session` cookie and return the user profile without exposing the token in JSON. Requests from the frontend must include credentials. `GET /auth/me` reads current account, agency and permissions from PostgreSQL. `POST /auth/logout` expires the session cookie.
+
+Google OAuth is optional. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and a callback URL registered with Google. The local callback URL is `http://localhost:5000/api/auth/google/callback`. Google accounts must map to an existing active agency user; OAuth does not create or join an agency. `POST /auth/users` is restricted to users with `users:manage` and creates an account inside the authenticated agency.
+
+For local/e2e development only, Client Hub routes also accept the seeded actor when `ENABLE_DEV_AUTH=true` and `DEV_ACTOR_EMAIL` is configured. Seed requires `DEV_ACTOR_PASSWORD` in ignored `backend/.env`. The development fallback is disabled in production and never trusts a browser-supplied agency/user id. Client create/edit requires `clients:manage`; requirement create/edit requires `requirements:manage`; confirmation requires `requirements:confirm`; communication logging requires `communications:manage`; file/reference write/removal requires `files:manage`.
 
 For local demonstration data, run `npm run prisma:seed:dev` and then `npm run prisma:seed:demo` from `backend/`. The demo script is production-disabled and idempotent: stable fixture IDs are inserted only when absent; it does not clear or update existing rows. All records are fictional and visibly labeled `DEMO`.
 
@@ -13,6 +17,13 @@ For local demonstration data, run `npm run prisma:seed:dev` and then `npm run pr
 | Method | Route | Behavior |
 |---|---|---|
 | GET | `/health` | Liveness only; no database probe |
+| POST | `/auth/signup` | Create agency workspace and first owner; sets HttpOnly session cookie |
+| POST | `/auth/login` | Verify credentials; sets HttpOnly session cookie |
+| POST | `/auth/logout` | Clear session cookie |
+| GET | `/auth/me` | Resolve authenticated user, agency and database-backed permissions |
+| GET | `/auth/google` | Return Google OAuth availability and sign-in URL |
+| GET | `/auth/google/callback?code=&state=` | Verify Google callback and redirect to workspace |
+| POST | `/auth/users` | Create agency member (requires `users:manage`) |
 | GET | `/clients/capabilities` | Available and planned capability list |
 | GET | `/client-hub/overview` | Tenant-scoped dashboard counts and recent clients, requirements needing attention, communications, files/references and safe activity summaries |
 | GET | `/clients?search=&page=1&limit=20` | Active agency client list, name search, pagination |

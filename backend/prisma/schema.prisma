@@ -89,6 +89,11 @@ model User {
   roleId                       String?                @db.Uuid
   email                        String
   name                         String
+  passwordHash                 String?
+  googleId                     String?
+  avatarUrl                    String?
+  isActive                     Boolean                @default(true)
+  lastLoginAt                  DateTime?
   createdAt                    DateTime               @default(now())
   updatedAt                    DateTime               @updatedAt
   agency                       Agency                 @relation(fields: [agencyId], references: [id], onDelete: Restrict)

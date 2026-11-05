@@ -1,12 +1,12 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { CurrentActor } from "../common/auth/agency-context";
 import type { AgencyActor } from "../common/auth/agency-context";
-import { DevelopmentActorGuard } from "./development-actor.guard";
+import { JwtAuthGuard } from "../common/auth/jwt-auth.guard";
 import { ClientDto, ClientQueryDto, RequirementDto, StatusDto, UpdateClientDto, UpdateRequirementDto } from "./dto/client-hub.dto";
 import { ClientHubService } from "./client-hub.service";
 
 @Controller()
-@UseGuards(DevelopmentActorGuard)
+@UseGuards(JwtAuthGuard)
 export class ClientHubController {
   constructor(private readonly service: ClientHubService) {}
   @Get("clients/capabilities") capabilities() { return this.service.capabilities(); }

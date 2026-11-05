@@ -4,13 +4,13 @@ import { createReadStream } from "node:fs";
 import type { Response } from "express";
 import { CurrentActor } from "../common/auth/agency-context";
 import type { AgencyActor } from "../common/auth/agency-context";
-import { DevelopmentActorGuard } from "./development-actor.guard";
+import { JwtAuthGuard } from "../common/auth/jwt-auth.guard";
 import { AssetQueryDto, CommunicationQueryDto, CreateCommunicationDto, CreateReferenceDto, TimelineQueryDto, UploadClientFileDto } from "./dto/collaboration.dto";
 import { ClientCollaborationService } from "./client-collaboration.service";
 import type { UploadBufferFile } from "./local-asset-storage.service";
 
 @Controller()
-@UseGuards(DevelopmentActorGuard)
+@UseGuards(JwtAuthGuard)
 export class ClientCollaborationController {
   constructor(private readonly collaboration: ClientCollaborationService) {}
 

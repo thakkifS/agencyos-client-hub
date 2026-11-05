@@ -1,21 +1,460 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { apiEndpoint, apiRequest, type ClientAssetRecord, type PageResult, type RequirementRecord } from "@/lib/api/client";
+import {
+  Download,
+  ExternalLink,
+  FileCode,
+  FileIcon,
+  FileText,
+  FolderOpen,
+  ImageIcon,
+  Link2,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import {
+  apiEndpoint,
+  apiRequest,
+  type ClientAssetRecord,
+  type PageResult,
+  type RequirementRecord,
+} from "@/lib/api/client";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
 
-export function AssetsPanel({ clientId, requirements }: { clientId: string; requirements: RequirementRecord[] }) {
-  const [assets,setAssets]=useState<ClientAssetRecord[]>([]);const [page,setPage]=useState(1);const [pages,setPages]=useState(1);const [filter,setFilter]=useState("");const [loading,setLoading]=useState(true);const [error,setError]=useState("");const [success,setSuccess]=useState("");const [mode,setMode]=useState<"FILE"|"REFERENCE"|null>(null);const [busy,setBusy]=useState(false);const [requirementId,setRequirementId]=useState("");const [label,setLabel]=useState("");const [file,setFile]=useState<File|null>(null);const [url,setUrl]=useState("");
-  const load=useCallback(async(nextPage=1)=>{setLoading(true);setError("");try{const query=new URLSearchParams({page:String(nextPage),limit:"10"});if(filter)query.set("type",filter);const result=await apiRequest<PageResult<ClientAssetRecord>>(`/clients/${clientId}/assets?${query}`);setAssets(result.items);setPages(result.pagination.pages);setPage(nextPage)}catch(e){setError(e instanceof Error?e.message:"Could not load files and references")}finally{setLoading(false)}},[clientId,filter]);
-  useEffect(()=>{const timer=window.setTimeout(()=>{void load(1)},0);return()=>window.clearTimeout(timer)},[load]);
-  function closeForm(){setMode(null);setRequirementId("");setLabel("");setUrl("");setFile(null)}
-  async function upload(event:React.FormEvent){event.preventDefault();if(!file)return;setBusy(true);setError("");setSuccess("");try{const form=new FormData();form.append("file",file);if(requirementId)form.append("requirementId",requirementId);if(label)form.append("label",label);await apiRequest(`/clients/${clientId}/files`,{method:"POST",body:form});setSuccess("File uploaded and linked.");closeForm();await load(1)}catch(e){setError(e instanceof Error?e.message:"File upload failed")}finally{setBusy(false)}}
-  async function addReference(event:React.FormEvent){event.preventDefault();setBusy(true);setError("");setSuccess("");try{await apiRequest(`/clients/${clientId}/references`,{method:"POST",body:JSON.stringify({label,url,requirementId:requirementId||undefined})});setSuccess("Reference link added.");closeForm();await load(1)}catch(e){setError(e instanceof Error?e.message:"Could not add reference")}finally{setBusy(false)}}
-  async function remove(asset:ClientAssetRecord){if(!window.confirm(`Remove ${asset.label}? This hides the record while retaining stored file content for retention.`))return;setError("");setSuccess("");try{await apiRequest(`/assets/${asset.id}`,{method:"DELETE"});setSuccess("File/reference removed from the workspace.");await load(page)}catch(e){setError(e instanceof Error?e.message:"Remove failed")}}
-  return <section id="files" className="rounded-lg border bg-white"><div className="flex flex-wrap items-center justify-between gap-3 border-b p-4 sm:px-5"><div><h2 className="text-sm font-semibold">Files / References</h2><p className="mt-1 text-xs text-[var(--secondary)]">Private local development storage · maximum 10 MB per file</p></div><div className="flex gap-2"><button onClick={()=>setMode("REFERENCE")} className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-slate-50">Add reference</button><button onClick={()=>setMode("FILE")} className="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700">Upload file</button></div></div>
-    {success&&<p role="status" className="m-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">{success}</p>}{error&&<p role="alert" className="m-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-[var(--error)]">{error}</p>}
-    {mode&&<form onSubmit={mode==="FILE"?upload:addReference} className="grid gap-3 border-b bg-slate-50/60 p-4 sm:grid-cols-2"><h3 className="text-xs font-semibold sm:col-span-2">{mode==="FILE"?"Upload a client file":"Add an external reference"}</h3>{mode==="FILE"?<><label className="text-xs font-medium">File (PDF, JPEG, PNG or WebP)<input required type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]||null)} className="mt-1 block w-full rounded-md border bg-white p-2 text-xs"/></label><label className="text-xs font-medium">Display label (optional)<input maxLength={200} value={label} onChange={e=>setLabel(e.target.value)} className="mt-1 block h-9 w-full rounded-md border bg-white px-3 text-sm"/></label></>:<><label className="text-xs font-medium">Label<input required maxLength={200} value={label} onChange={e=>setLabel(e.target.value)} className="mt-1 block h-9 w-full rounded-md border bg-white px-3 text-sm"/></label><label className="text-xs font-medium">HTTPS/HTTP URL<input required type="url" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://example.com" className="mt-1 block h-9 w-full rounded-md border bg-white px-3 text-sm"/></label></>}<label className="text-xs font-medium sm:col-span-2">Associate with requirement (optional)<select value={requirementId} onChange={e=>setRequirementId(e.target.value)} className="mt-1 block h-9 w-full rounded-md border bg-white px-2 text-sm"><option value="">Client-level</option>{requirements.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select></label><div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={closeForm} className="rounded-md border px-3 py-2 text-xs">Cancel</button><button disabled={busy} className="rounded-md bg-blue-600 px-4 py-2 text-xs font-medium text-white disabled:opacity-50">{busy?(mode==="FILE"?"Uploading…":"Saving…"):(mode==="FILE"?"Upload":"Add link")}</button></div></form>}
-    <div className="flex items-center justify-between border-b bg-slate-50/60 px-4 py-2"><p className="text-xs text-[var(--secondary)]">File bytes are stored privately; clients receive downloads through an agency-authorized API.</p><select aria-label="Filter assets" value={filter} onChange={e=>setFilter(e.target.value)} className="h-8 rounded border bg-white px-2 text-xs"><option value="">All items</option><option value="FILE">Files</option><option value="REFERENCE">References</option></select></div>
-    {loading?<div className="p-9 text-center text-xs text-[var(--secondary)]">Loading files and references…</div>:assets.length===0?<div className="p-9 text-center text-xs text-[var(--secondary)]">No files or references have been added.</div>:<div className="divide-y">{assets.map(asset=><article key={asset.id} className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center sm:px-5"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`rounded px-2 py-1 text-xs font-semibold ${asset.type==="FILE"?"bg-slate-100 text-[var(--secondary)]":"bg-blue-50 text-blue-700"}`}>{asset.type}</span><h3 className="truncate text-xs font-semibold">{asset.label}</h3></div><p className="mt-1 text-xs text-[var(--secondary)]">{asset.originalName||asset.externalUrl}{asset.fileSize?` · ${(asset.fileSize/1024/1024).toFixed(2)} MB`:""}</p><p className="mt-1 text-xs text-[var(--secondary)]">Added by {asset.uploadedBy.name} · {new Date(asset.uploadedAt).toLocaleString()}{asset.requirement?` · ${asset.requirement.title}`:" · Client-level"}</p></div><div className="flex shrink-0 gap-2">{asset.type==="FILE"&&<a href={apiEndpoint(`/assets/${asset.id}/download`)} className="rounded border px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50">Download</a>}{asset.externalUrl&&<a href={asset.externalUrl} target="_blank" rel="noreferrer" className="rounded border px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50">Open link</a>}<button onClick={()=>void remove(asset)} className="rounded border px-3 py-1.5 text-xs text-[var(--error)] hover:bg-red-50">Remove</button></div></article>)}</div>}
-    <div className="flex items-center justify-between border-t px-4 py-3 text-xs text-[var(--secondary)]"><span>Page {page} of {Math.max(1,pages)}</span><div className="flex gap-2"><button disabled={page<=1||loading} onClick={()=>void load(page-1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={page>=pages||loading} onClick={()=>void load(page+1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>
-  </section>;
+export function AssetsPanel({
+  clientId,
+  requirements,
+}: {
+  clientId: string;
+  requirements: RequirementRecord[];
+}) {
+  const [assets, setAssets] = useState<ClientAssetRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [filter, setFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [refModalOpen, setRefModalOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Form states
+  const [requirementId, setRequirementId] = useState("");
+  const [label, setLabel] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState("");
+
+  const load = useCallback(
+    async (nextPage = 1) => {
+      setLoading(true);
+      setError("");
+      try {
+        const query = new URLSearchParams({
+          page: String(nextPage),
+          limit: "10",
+        });
+        if (filter) query.set("type", filter);
+        const result = await apiRequest<PageResult<ClientAssetRecord>>(
+          `/clients/${clientId}/assets?${query}`
+        );
+        setAssets(result.items);
+        setPages(result.pagination.pages);
+        setPage(nextPage);
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "Could not load files and references"
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [clientId, filter]
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load(1);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  function closeForms() {
+    setUploadModalOpen(false);
+    setRefModalOpen(false);
+    setRequirementId("");
+    setLabel("");
+    setUrl("");
+    setFile(null);
+  }
+
+  async function handleUpload(event: React.FormEvent) {
+    event.preventDefault();
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      if (requirementId) form.append("requirementId", requirementId);
+      if (label) form.append("label", label);
+      await apiRequest(`/clients/${clientId}/files`, {
+        method: "POST",
+        body: form,
+      });
+      setSuccess("File uploaded securely to private storage.");
+      closeForms();
+      await load(1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "File upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAddReference(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      await apiRequest(`/clients/${clientId}/references`, {
+        method: "POST",
+        body: JSON.stringify({
+          label,
+          url,
+          requirementId: requirementId || undefined,
+        }),
+      });
+      setSuccess("External reference URL saved.");
+      closeForms();
+      await load(1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not add reference");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRemove(asset: ClientAssetRecord) {
+    if (
+      !window.confirm(
+        `Remove "${asset.label}" from workspace? This soft-deletes the record while preserving audit compliance.`
+      )
+    )
+      return;
+    setError("");
+    setSuccess("");
+    try {
+      await apiRequest(`/assets/${asset.id}`, { method: "DELETE" });
+      setSuccess("Item removed from active workspace.");
+      await load(page);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Remove failed");
+    }
+  }
+
+  const getFileIcon = (asset: ClientAssetRecord) => {
+    if (asset.type === "REFERENCE") return <Link2 size={16} className="text-blue-600" />;
+    const mime = asset.mimeType || "";
+    if (mime.includes("image")) return <ImageIcon size={16} className="text-emerald-600" />;
+    if (mime.includes("pdf")) return <FileText size={16} className="text-red-600" />;
+    return <FileIcon size={16} className="text-slate-600" />;
+  };
+
+  return (
+    <section id="files" className="glass-panel rounded-2xl overflow-hidden shadow-xs">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] p-5 bg-white/50">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--foreground)]">
+            Files & External References
+          </h2>
+          <p className="mt-0.5 text-xs text-[var(--secondary)]">
+            Private authorized storage (PDF, PNG, JPG, WebP &le; 10 MB) and client links
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setRefModalOpen(true)}>
+            <Link2 size={14} /> Add Reference
+          </Button>
+          <Button size="sm" onClick={() => setUploadModalOpen(true)}>
+            <Upload size={14} /> Upload File
+          </Button>
+        </div>
+      </div>
+
+      {/* Notifications */}
+      {success && (
+        <div
+          role="status"
+          className="m-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900 animate-fade-in"
+        >
+          {success}
+        </div>
+      )}
+      {error && (
+        <div
+          role="alert"
+          className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-[var(--error)] animate-fade-in"
+        >
+          {error}
+        </div>
+      )}
+
+      {/* Filter toolbar */}
+      <div className="flex items-center justify-between border-b border-[var(--border)] bg-slate-50/60 px-5 py-3 text-xs text-[var(--secondary)]">
+        <span>Authorized file downloads stream safely with verified MIME signatures.</span>
+        <label className="flex items-center gap-2 font-medium">
+          Filter:
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="h-8 rounded-lg border border-[var(--border)] bg-white px-2.5 text-xs text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+          >
+            <option value="">All Materials</option>
+            <option value="FILE">Files Only</option>
+            <option value="REFERENCE">References Only</option>
+          </select>
+        </label>
+      </div>
+
+      {/* Items list */}
+      {loading ? (
+        <div className="p-12 text-center text-xs text-[var(--secondary)]">
+          <RefreshCw size={20} className="mx-auto text-blue-500 animate-spin mb-2" />
+          Loading workspace assets…
+        </div>
+      ) : assets.length === 0 ? (
+        <div className="p-12 text-center text-xs text-[var(--secondary)]">
+          <FolderOpen size={28} className="mx-auto text-slate-300 mb-2" />
+          <p className="font-semibold text-[var(--foreground)]">No files or references found</p>
+          <p className="mt-1">Upload client specification docs or link Figma / GitHub resources.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-[var(--border)]">
+          {assets.map((asset) => (
+            <article
+              key={asset.id}
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 hover:bg-slate-50/50 transition-colors"
+            >
+              <div className="flex items-start gap-3.5 min-w-0">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-white shadow-xs mt-0.5">
+                  {getFileIcon(asset)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={asset.type === "FILE" ? "primary" : "neutral"} className="text-[10px]">
+                      {asset.type === "FILE" ? "File" : "Link"}
+                    </Badge>
+                    <h3 className="text-xs sm:text-sm font-bold text-[var(--foreground)] truncate">
+                      {asset.label}
+                    </h3>
+                  </div>
+
+                  <p className="mt-1 text-xs text-[var(--secondary)] truncate">
+                    {asset.originalName || asset.externalUrl}
+                    {asset.fileSize
+                      ? ` · ${(asset.fileSize / 1024 / 1024).toFixed(2)} MB`
+                      : ""}
+                  </p>
+
+                  <p className="mt-1 text-[11px] text-[var(--secondary)]">
+                    Added by {asset.uploadedBy.name} on{" "}
+                    {new Date(asset.uploadedAt).toLocaleDateString()}
+                    {asset.requirement
+                      ? ` · Requirement: ${asset.requirement.title}`
+                      : " · Client-level asset"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex shrink-0 items-center gap-2 sm:self-center">
+                {asset.type === "FILE" && (
+                  <a
+                    href={apiEndpoint(`/assets/${asset.id}/download`)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--primary)] hover:bg-blue-50 transition-colors shadow-xs"
+                  >
+                    <Download size={13} /> Download
+                  </a>
+                )}
+                {asset.externalUrl && (
+                  <a
+                    href={asset.externalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--primary)] hover:bg-blue-50 transition-colors shadow-xs"
+                  >
+                    <ExternalLink size={13} /> Open
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handleRemove(asset)}
+                  aria-label={`Remove ${asset.label}`}
+                  className="inline-flex items-center gap-1 rounded-xl border border-red-200/80 bg-white px-2.5 py-1.5 text-xs font-medium text-[var(--error)] hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 size={13} /> Remove
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between border-t border-[var(--border)] px-5 py-3 text-xs text-[var(--secondary)] bg-white/40">
+        <span>
+          Page <strong className="text-[var(--foreground)]">{page}</strong> of{" "}
+          <strong className="text-[var(--foreground)]">{Math.max(1, pages)}</strong>
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={page <= 1 || loading}
+            onClick={() => void load(page - 1)}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={page >= pages || loading}
+            onClick={() => void load(page + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+
+      {/* Upload File Modal */}
+      <Modal
+        isOpen={uploadModalOpen}
+        onClose={closeForms}
+        title="Upload Client File"
+        description="Files are stored securely with verified signatures. Supported: PDF, JPEG, PNG, WebP up to 10 MB."
+        maxWidth="lg"
+      >
+        <form onSubmit={handleUpload} className="space-y-4">
+          <label className="block text-xs font-semibold text-[var(--foreground)]">
+            Select File <span className="text-[var(--error)]">*</span>
+            <input
+              required
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="mt-1.5 block w-full rounded-xl border border-[var(--border)] bg-white p-2.5 text-xs focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+            />
+          </label>
+
+          <label className="block text-xs font-semibold text-[var(--foreground)]">
+            Display Label (Optional)
+            <input
+              maxLength={200}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g. SOW Signed Agreement"
+              className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-xs sm:text-sm focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+            />
+          </label>
+
+          <label className="block text-xs font-semibold text-[var(--foreground)]">
+            Link to Requirement (Optional)
+            <select
+              value={requirementId}
+              onChange={(e) => setRequirementId(e.target.value)}
+              className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-white px-2.5 text-xs focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+            >
+              <option value="">Client-level material</option>
+              {requirements.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-[var(--border)]">
+            <Button type="button" variant="secondary" onClick={closeForms}>
+              Cancel
+            </Button>
+            <Button disabled={busy || !file} type="submit">
+              {busy ? "Uploading…" : "Upload File"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Reference Modal */}
+      <Modal
+        isOpen={refModalOpen}
+        onClose={closeForms}
+        title="Add External Reference Link"
+        description="Save external documentation, design links, or shared repository URLs."
+        maxWidth="lg"
+      >
+        <form onSubmit={handleAddReference} className="space-y-4">
+          <label className="block text-xs font-semibold text-[var(--foreground)]">
+            Reference Label <span className="text-[var(--error)]">*</span>
+            <input
+              required
+              maxLength={200}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g. Figma Design System"
+              className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-xs sm:text-sm focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+            />
+          </label>
+
+          <label className="block text-xs font-semibold text-[var(--foreground)]">
+            HTTPS / HTTP URL <span className="text-[var(--error)]">*</span>
+            <input
+              required
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://figma.com/file/..."
+              className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-xs sm:text-sm focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+            />
+          </label>
+
+          <label className="block text-xs font-semibold text-[var(--foreground)]">
+            Link to Requirement (Optional)
+            <select
+              value={requirementId}
+              onChange={(e) => setRequirementId(e.target.value)}
+              className="mt-1.5 block h-10 w-full rounded-xl border border-[var(--border)] bg-white px-2.5 text-xs focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+            >
+              <option value="">Client-level material</option>
+              {requirements.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-[var(--border)]">
+            <Button type="button" variant="secondary" onClick={closeForms}>
+              Cancel
+            </Button>
+            <Button disabled={busy || !label || !url} type="submit">
+              {busy ? "Saving…" : "Save Reference"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </section>
+  );
 }
+
+export default AssetsPanel;
